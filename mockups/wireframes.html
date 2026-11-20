@@ -1,0 +1,534 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Maquettes planning bénévoles</title>
+<style>
+/* layout: top nav switches between full-screen wireframe panels; each panel = one app screen, boxes stand in for real UI */
+:root{
+  --bg:#f3f1ec; --surface:#ffffff; --ink:#2a2824; --muted:#8a8578;
+  --line:#c9c4b8; --accent:#7a5c3e; --accent-weak:#ece4d8;
+  --font-display:'Space Mono', ui-monospace, 'SF Mono', monospace;
+  --font-body:'Inter', system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1c1a17; --surface:#262320; --ink:#e9e5dc; --muted:#8f897a;
+    --line:#45403a; --accent:#c79a6e; --accent-weak:#352c22; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1c1a17; --surface:#262320; --ink:#e9e5dc; --muted:#8f897a;
+  --line:#45403a; --accent:#c79a6e; --accent-weak:#352c22; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--font-body); font-size:14px; line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+h1,h2,h3{font-family:var(--font-display); font-weight:700; text-wrap:balance; margin:0}
+.topbar{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:5;
+  background:var(--surface); border-bottom:1px solid var(--line);
+  padding:14px 0; margin:0 -16px; padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+}
+.topbar-inner{display:flex; align-items:center; gap:18px; flex-wrap:wrap; max-width:1100px; margin:0 auto}
+.brand{font-family:var(--font-display); font-size:13px; letter-spacing:.04em; color:var(--muted); white-space:nowrap}
+.tabs{display:flex; gap:4px; flex-wrap:wrap}
+.tab{
+  font-family:var(--font-body); font-size:12.5px; font-weight:600; color:var(--muted);
+  background:none; border:1px solid transparent; border-radius:5px; padding:7px 11px; cursor:pointer;
+}
+.tab:hover{color:var(--ink)}
+.tab.active{background:var(--accent-weak); color:var(--accent); border-color:var(--line)}
+main{max-width:1100px; margin:0 auto; padding-block:24px 60px}
+.screen{display:none}
+.screen.active{display:block}
+.screen-head{display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; margin-bottom:4px}
+.screen-head h2{font-size:19px}
+.screen-tag{font-size:11.5px; color:var(--muted); letter-spacing:.03em}
+.note{color:var(--muted); font-size:12.5px; margin:4px 0 18px; max-width:65ch}
+
+/* wireframe primitives */
+.wf{border:1px dashed var(--line); border-radius:6px; background:var(--surface)}
+.wf-fill{background:var(--accent-weak); border-color:var(--line)}
+.wf-label{font-size:10.5px; color:var(--muted); letter-spacing:.03em; text-transform:uppercase}
+.btn-wf{border:1px solid var(--ink); border-radius:5px; padding:7px 13px; font-size:12.5px; font-weight:600; background:var(--surface); color:var(--ink); white-space:nowrap}
+.btn-wf.primary{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+.pill{border:1px solid var(--line); border-radius:999px; padding:3px 10px; font-size:11.5px; color:var(--muted)}
+.lock{font-size:10px; border:1px solid var(--accent); color:var(--accent); border-radius:3px; padding:1px 5px; margin-left:5px}
+
+/* screen 1: planning grid */
+.toolbar-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:16px 0}
+.select-wf{min-width:150px; height:34px; display:flex; align-items:center; padding:0 10px; font-size:12.5px; color:var(--muted)}
+.search-wf{flex:1; min-width:160px; height:34px; display:flex; align-items:center; padding:0 10px; font-size:12.5px; color:var(--muted)}
+.day-pills{display:flex; gap:6px; flex-wrap:wrap; margin:14px 0}
+.grid-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:8px}
+table.plan{border-collapse:collapse; width:100%; min-width:760px; font-size:12.5px}
+table.plan th,table.plan td{border-bottom:1px solid var(--line); border-right:1px solid var(--line); padding:9px 10px; text-align:left; vertical-align:top}
+table.plan th{background:var(--accent-weak); font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); font-weight:700; position:sticky; top:0}
+table.plan td:first-child, table.plan th:first-child{position:sticky; left:0; background:var(--surface); z-index:1; min-width:150px}
+table.plan th:first-child{background:var(--accent-weak); z-index:2}
+.name-link{color:var(--accent); text-decoration:underline; text-underline-offset:2px; cursor:pointer; font-weight:600}
+.cell-tag{display:inline-block; background:var(--accent-weak); border:1px solid var(--line); border-radius:4px; padding:2px 6px; font-size:11px; margin:1px 2px 0 0}
+.cell-empty{color:var(--line)}
+
+/* screen 2: individual detail */
+.detail-layout{display:grid; grid-template-columns:260px 1fr; gap:20px}
+@media (max-width:760px){.detail-layout{grid-template-columns:1fr}}
+.side-wf{padding:14px; display:flex; flex-direction:column; gap:10px; min-width:0}
+.id-card{display:flex; gap:10px; align-items:center}
+.avatar-wf{width:40px; height:40px; border-radius:50%; flex-shrink:0}
+.ev-switch{display:flex; gap:6px}
+.ev-switch .btn-wf{flex:1; text-align:center; padding:8px 6px; font-size:11.5px}
+.search-list{display:flex; flex-direction:column; gap:4px; max-height:220px; overflow:auto}
+.search-row{padding:6px 8px; border-radius:4px; font-size:12px; color:var(--muted)}
+.search-row.sel{background:var(--accent-weak); color:var(--ink); font-weight:600}
+.day-block{padding:14px; margin-bottom:12px; min-width:0}
+.day-block h3{font-size:13px; margin-bottom:10px}
+.slot-row{display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid var(--line)}
+.slot-row:first-of-type{border-top:none}
+.slot-time{width:90px; font-size:11.5px; color:var(--muted); flex-shrink:0; font-variant-numeric:tabular-nums}
+.slot-chip{flex:1; min-width:0}
+
+/* screen 3/4/5: admin forms */
+.admin-layout{display:grid; grid-template-columns:200px 1fr; gap:20px}
+@media (max-width:760px){.admin-layout{grid-template-columns:1fr}}
+.admin-nav{display:flex; flex-direction:column; gap:2px}
+.admin-nav-item{padding:8px 10px; border-radius:5px; font-size:12.5px; color:var(--muted)}
+.admin-nav-item.sel{background:var(--accent-weak); color:var(--ink); font-weight:600}
+.panel{padding:16px; min-width:0}
+.panel h3{font-size:14px; margin-bottom:3px}
+.field-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:12px}
+.field{padding:10px; display:flex; flex-direction:column; gap:5px}
+.input-wf{height:28px; margin-top:2px}
+.req-table{border-collapse:collapse; width:100%; font-size:12px; margin-top:10px; min-width:600px}
+.req-table th,.req-table td{border:1px solid var(--line); padding:7px 8px; text-align:center}
+.req-table th{background:var(--accent-weak); font-size:10px; text-transform:uppercase; color:var(--muted)}
+.req-table td:first-child,.req-table th:first-child{text-align:left; min-width:160px}
+.req-input{width:34px; height:22px; display:inline-block; vertical-align:middle}
+.rule-row{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line)}
+.rule-row:first-of-type{border-top:none}
+.rule-label{font-size:12.5px}
+.rule-sub{font-size:11px; color:var(--muted); margin-top:2px}
+.toggle-wf{width:36px; height:20px; border-radius:999px; flex-shrink:0; position:relative}
+.toggle-wf::after{content:"";position:absolute; width:14px; height:14px; border-radius:50%; background:var(--ink); top:2px; right:2px}
+.comm-row{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-top:1px solid var(--line); font-size:12.5px; gap:10px}
+.comm-row:first-of-type{border-top:none}
+.comm-main{display:flex; flex-direction:column; gap:2px; min-width:0}
+.comm-meta{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+.poste-list{margin:6px 0 2px 0; padding-left:14px; border-left:2px solid var(--line); display:flex; flex-direction:column; gap:3px}
+.poste-item{font-size:11.5px; color:var(--muted)}
+.grille-badge{font-size:10px; border:1px solid var(--line); border-radius:3px; padding:1px 5px; color:var(--muted)}
+.grille-badge.propre{border-color:var(--accent); color:var(--accent)}
+.poste-edit-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid var(--line)}
+.poste-edit-row:first-of-type{border-top:none}
+.poste-edit-row .input-wf{flex:1; min-width:0}
+.poste-drag{color:var(--muted); font-size:13px; cursor:grab; flex-shrink:0}
+.btn-wf.danger{border-color:#9c4a3c; color:#9c4a3c}
+.btn-wf.ghost{border-style:dashed; color:var(--muted)}
+.sync-status{display:flex; gap:20px; flex-wrap:wrap; margin:14px 0}
+.stat-wf{padding:14px 18px; min-width:140px}
+.stat-num{font-family:var(--font-display); font-size:22px}
+.stat-lbl{font-size:11px; color:var(--muted); margin-top:3px}
+</style>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="brand">CEP·BÉNÉVOLES — wireframes</span>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-screen="s1">Planning</button>
+      <button class="tab" data-screen="s2">Détail bénévole</button>
+      <button class="tab" data-screen="s3">Besoins</button>
+      <button class="tab" data-screen="s4">Créneaux</button>
+      <button class="tab" data-screen="s5">Commissions</button>
+      <button class="tab" data-screen="s6">Synchro</button>
+    </nav>
+  </div>
+</div>
+
+<main>
+
+<!-- SCREEN 1 -->
+<section class="screen active" id="s1">
+  <div class="screen-head"><h2>Planning — événement / jour</h2><span class="screen-tag">Écran principal</span></div>
+  <p class="note">Sélection événement + date, puis tableau bénévoles (tri nom de famille) × créneaux. Clic sur un nom → détail individuel.</p>
+
+  <div class="toolbar-row">
+    <div class="select-wf wf">▾ France Indiv Perf GAM/GAF</div>
+    <div class="select-wf wf">▾ Samedi 1er mai</div>
+    <div class="search-wf wf">🔍 Rechercher un bénévole…</div>
+    <button class="btn-wf primary">Générer le planning</button>
+  </div>
+
+  <div class="day-pills">
+    <span class="pill">7h–9h</span><span class="pill">9h–11h</span><span class="pill">11h–13h</span>
+    <span class="pill">13h–15h</span><span class="pill">15h–17h</span><span class="pill">17h–19h30</span><span class="pill">19h30+</span>
+  </div>
+
+  <div class="grid-wrap">
+    <table class="plan">
+      <thead><tr>
+        <th>Bénévole</th><th>7–9h</th><th>9–11h</th><th>11–13h</th><th>13–15h</th><th>15–17h</th><th>17–19h30</th><th>19h30+</th>
+      </tr></thead>
+      <tbody>
+        <tr><td><span class="name-link">Albert · Marie</span></td>
+          <td><span class="cell-tag">Accueil</span></td><td><span class="cell-tag">Accueil</span></td>
+          <td><span class="cell-empty">pause</span></td><td><span class="cell-empty">pause</span></td>
+          <td><span class="cell-tag">Animation · Mascotte</span></td><td><span class="cell-empty">—</span></td><td><span class="cell-empty">—</span></td></tr>
+        <tr><td><span class="name-link">Bernard · Luc</span></td>
+          <td><span class="cell-empty">—</span></td><td><span class="cell-tag">Transport</span></td>
+          <td><span class="cell-tag">Transport</span></td><td><span class="cell-empty">pause</span></td>
+          <td><span class="cell-tag">Contrôle accès</span><span class="lock">M</span></td><td><span class="cell-empty">—</span></td><td><span class="cell-empty">—</span></td></tr>
+        <tr><td><span class="name-link">Chevalier · Inès</span></td>
+          <td><span class="cell-tag">Secrétariat</span></td><td><span class="cell-tag">Secrétariat</span></td>
+          <td><span class="cell-empty">pause</span></td><td><span class="cell-tag">Déroulement</span></td>
+          <td><span class="cell-tag">Déroulement</span></td><td><span class="cell-empty">pause</span></td><td><span class="cell-tag">Sonorisation</span></td></tr>
+        <tr><td><span class="name-link">Chevalier · Paul</span></td>
+          <td><span class="cell-empty">—</span></td><td><span class="cell-empty">—</span></td>
+          <td><span class="cell-tag">Restauration</span></td><td><span class="cell-empty">pause</span></td>
+          <td><span class="cell-tag">Friture / cuisson</span></td><td><span class="cell-tag">Friture / cuisson</span></td><td><span class="cell-empty">—</span></td></tr>
+        <tr><td><span class="name-link">Dubreuil · Sacha</span></td>
+          <td><span class="cell-tag">Juge de ligne</span></td><td><span class="cell-empty">pause</span></td>
+          <td><span class="cell-tag">Juge de ligne</span></td><td><span class="cell-tag">Juge de ligne</span></td>
+          <td><span class="cell-empty">pause</span></td><td><span class="cell-empty">—</span></td><td><span class="cell-empty">—</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note" style="margin-top:12px"><span class="lock">M</span> = affectation modifiée à la main, préservée lors d'une régénération. Une cellule affiche le poste (ex. <em>Animation · Mascotte</em>) quand la commission en a un, sinon la commission seule.</p>
+  <p class="note">Les commissions à grille de créneaux propre (Déroulement, Sonorisation, Juge de ligne, Secrétariat de table) utilisent leurs propres colonnes horaires ; la grille affichée s'adapte à la commission filtrée.</p>
+</section>
+
+<!-- SCREEN 2 -->
+<section class="screen" id="s2">
+  <div class="screen-head"><h2>Détail individuel</h2><span class="screen-tag">Depuis un clic sur un nom</span></div>
+  <p class="note">Planning complet du bénévole sur l'événement en cours, avec bascule rapide vers un autre événement.</p>
+
+  <div class="detail-layout">
+    <div class="side-wf wf">
+      <div class="id-card">
+        <div class="avatar-wf wf-fill"></div>
+        <div><div style="font-weight:700">Chevalier Inès</div><div class="wf-label">13–14 ans</div></div>
+      </div>
+      <div class="wf-label">Événement affiché</div>
+      <div class="ev-switch">
+        <div class="btn-wf primary">Indiv GAM/GAF</div>
+        <div class="btn-wf">TeamGym</div>
+      </div>
+      <div class="wf-label" style="margin-top:6px">Filtrer un autre bénévole</div>
+      <div class="search-wf wf">🔍 Nom de famille…</div>
+      <div class="search-list">
+        <div class="search-row sel">Chevalier · Inès</div>
+        <div class="search-row">Chevalier · Paul</div>
+        <div class="search-row">Dubreuil · Sacha</div>
+        <div class="search-row">Albert · Marie</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="day-block wf">
+        <h3>Jeudi 29 avril</h3>
+        <div class="slot-row"><span class="slot-time">matin</span><span class="slot-chip cell-empty">non affecté</span></div>
+      </div>
+      <div class="day-block wf">
+        <h3>Vendredi 30 avril</h3>
+        <div class="slot-row"><span class="slot-time">7h–9h</span><span class="slot-chip"><span class="cell-tag">Secrétariat de table</span></span></div>
+        <div class="slot-row"><span class="slot-time">9h–11h</span><span class="slot-chip"><span class="cell-tag">Secrétariat de table</span></span></div>
+        <div class="slot-row"><span class="slot-time">11h–13h</span><span class="slot-chip cell-empty">pause</span></div>
+      </div>
+      <div class="day-block wf">
+        <h3>Samedi 1er mai</h3>
+        <div class="slot-row"><span class="slot-time">13h–15h</span><span class="slot-chip"><span class="cell-tag">Déroulement</span></span></div>
+        <div class="slot-row"><span class="slot-time">15h–17h</span><span class="slot-chip"><span class="cell-tag">Déroulement</span></span></div>
+        <div class="slot-row"><span class="slot-time">19h30+</span><span class="slot-chip"><span class="cell-tag">Sonorisation</span><span class="lock">M</span></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREEN 3 -->
+<section class="screen" id="s3">
+  <div class="screen-head"><h2>Admin — besoins par commission</h2><span class="screen-tag">Saisie effectifs requis</span></div>
+  <p class="note">Nombre de bénévoles nécessaires, par commission et par créneau applicatif, pour l'événement sélectionné.</p>
+
+  <div class="admin-layout">
+    <div class="admin-nav wf" style="padding:10px">
+      <div class="admin-nav-item sel">Besoins</div>
+      <div class="admin-nav-item">Créneaux</div>
+      <div class="admin-nav-item">Commissions</div>
+      <div class="admin-nav-item">Synchro form</div>
+      <div class="admin-nav-item">Générer planning</div>
+    </div>
+
+    <div class="panel wf">
+      <div class="toolbar-row" style="margin-top:0">
+        <div class="select-wf wf">▾ Indiv GAM/GAF</div>
+        <div class="select-wf wf">▾ Samedi 1er mai</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="req-table">
+          <thead><tr><th>Commission</th><th>7–9h</th><th>9–11h</th><th>11–13h</th><th>13–15h</th><th>15–17h</th><th>17–19h30</th><th>19h30+</th></tr></thead>
+          <tbody>
+            <tr><td>Accueil</td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td></tr>
+            <tr><td>Transport</td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td></tr>
+            <tr><td>Restauration</td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td></tr>
+            <tr><td>Secrétariat de table</td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td></tr>
+            <tr><td>Animation <span class="wf-label">(a des postes)</span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px"><button class="btn-wf primary">Enregistrer les besoins</button></div>
+
+      <div style="margin-top:22px; padding-top:16px; border-top:1px solid var(--line)">
+        <h3>Répartition par poste — commission <em>Animation</em></h3>
+        <p class="note" style="margin:4px 0 10px">La somme des postes sur un créneau doit égaler le besoin total de la commission sur ce créneau.</p>
+        <div style="overflow-x:auto">
+          <table class="req-table">
+            <thead><tr><th>Poste</th><th>15–17h</th></tr></thead>
+            <tbody>
+              <tr><td>Mascotte</td><td><span class="input-wf wf"></span></td></tr>
+              <tr><td>Tombola gradins</td><td><span class="input-wf wf"></span></td></tr>
+              <tr><td>Micro-trottoir</td><td><span class="input-wf wf"></span></td></tr>
+              <tr><td>Stand tombola</td><td><span class="input-wf wf"></span></td></tr>
+              <tr><td>Photo booth</td><td><span class="input-wf wf"></span></td></tr>
+              <tr><td style="font-weight:600">Total postes</td><td style="font-weight:600">4</td></tr>
+              <tr><td style="color:var(--muted)">Besoin commission (ci-dessus)</td><td style="color:var(--muted)">4 ✓</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="margin-top:22px; padding-top:16px; border-top:1px solid var(--line)">
+        <h3>Commissions à grille de créneaux propre</h3>
+        <p class="note" style="margin:4px 0 10px">Déroulement, Sonorisation, Juge de ligne et Secrétariat de table utilisent leur propre découpage horaire (cf. écran Créneaux).</p>
+        <div style="overflow-x:auto">
+          <table class="req-table">
+            <thead><tr><th>Commission</th><th>Créneau 1</th><th>Créneau 2</th><th>Créneau 3</th><th>Créneau 4</th></tr></thead>
+            <tbody>
+              <tr><td>Déroulement</td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td></tr>
+              <tr><td>Sonorisation</td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td></tr>
+              <tr><td>Juge de ligne</td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td></tr>
+              <tr><td>Secrétariat de table</td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td><td><span class="input-wf wf"></span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREEN 4 -->
+<section class="screen" id="s4">
+  <div class="screen-head"><h2>Admin — créneaux applicatifs</h2><span class="screen-tag">Gabarit + règles d'enchaînement</span></div>
+  <p class="note">Créneaux par jour (gabarit par défaut, modifiable), mapping avec les cases du formulaire, et règles de pause/enchaînement.</p>
+
+  <div class="admin-layout">
+    <div class="admin-nav wf" style="padding:10px">
+      <div class="admin-nav-item">Besoins</div>
+      <div class="admin-nav-item sel">Créneaux</div>
+      <div class="admin-nav-item">Commissions</div>
+      <div class="admin-nav-item">Synchro form</div>
+      <div class="admin-nav-item">Générer planning</div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:16px; min-width:0">
+      <div class="panel wf">
+        <h3>Vendredi 30 avril — cr&eacute;neaux du jour</h3>
+        <div class="field-grid">
+          <div class="field wf"><span class="wf-label">Début</span><span class="input-wf wf"></span><span class="wf-label">Fin</span><span class="input-wf wf"></span></div>
+          <div class="field wf"><span class="wf-label">Début</span><span class="input-wf wf"></span><span class="wf-label">Fin</span><span class="input-wf wf"></span></div>
+          <div class="field wf"><span class="wf-label">Début</span><span class="input-wf wf"></span><span class="wf-label">Fin</span><span class="input-wf wf"></span></div>
+          <div class="field wf" style="justify-content:center; align-items:center; color:var(--muted); font-size:12px">+ ajouter un créneau</div>
+        </div>
+        <p class="note" style="margin-top:10px">Mapping form → app : <span class="pill">vendredi matin</span> → 7h–9h, 9h–11h · <span class="pill">vendredi midi</span> → 11h–13h, 13h–15h</p>
+      </div>
+
+      <div class="panel wf">
+        <h3>Bornes matin / midi / soir</h3>
+        <div class="field-grid">
+          <div class="field wf"><span class="wf-label">Midi — créneau 1</span><span class="input-wf wf"></span></div>
+          <div class="field wf"><span class="wf-label">Midi — créneau 2</span><span class="input-wf wf"></span></div>
+          <div class="field wf"><span class="wf-label">Soir — créneau 1</span><span class="input-wf wf"></span></div>
+          <div class="field wf"><span class="wf-label">Soir — créneau 2</span><span class="input-wf wf"></span></div>
+        </div>
+      </div>
+
+      <div class="panel wf">
+        <h3>Règles d'enchaînement <span class="wf-label">(grille générale)</span></h3>
+        <div class="rule-row"><div><div class="rule-label">Pause après N créneaux consécutifs</div><div class="rule-sub">Défaut : 2</div></div><span class="input-wf wf" style="width:50px"></span></div>
+        <div class="rule-row"><div class="rule-label">Interdire l'enchaînement des 2 créneaux midi</div><div class="toggle-wf wf-fill"></div></div>
+        <div class="rule-row"><div class="rule-label">Interdire l'enchaînement des 2 créneaux soir</div><div class="toggle-wf wf-fill"></div></div>
+        <p class="note" style="margin-top:10px">Ces règles ne s'appliquent qu'aux commissions utilisant la grille générale.</p>
+      </div>
+
+      <div class="panel wf">
+        <h3>Grille de créneaux par commission</h3>
+        <p class="note" style="margin:4px 0 10px">Par défaut une commission suit la grille générale ci-dessus. On peut la basculer sur une grille propre (ses propres horaires, sans règle de pause/enchaînement) ; chaque commission à grille propre a ses <em>propres</em> créneaux, non partagés avec une autre.</p>
+
+        <div class="comm-row"><div class="comm-main"><span>Déroulement</span></div><span class="grille-badge propre">grille propre</span></div>
+        <div class="comm-row"><div class="comm-main"><span>Sonorisation</span></div><span class="grille-badge propre">grille propre</span></div>
+        <div class="comm-row"><div class="comm-main"><span>Juge de ligne</span></div><span class="grille-badge propre">grille propre</span></div>
+        <div class="comm-row"><div class="comm-main"><span>Secrétariat de table</span></div><span class="grille-badge propre">grille propre</span></div>
+        <div class="comm-row"><div class="comm-main"><span>Accueil, Transport, Restauration, Boutique, Animation…</span></div><span class="grille-badge">grille générale</span></div>
+
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--line)">
+          <div class="toolbar-row" style="margin:0 0 10px">
+            <div class="select-wf wf">▾ Commission : Secrétariat de table</div>
+          </div>
+          <div class="toolbar-row" style="margin:0 0 10px">
+            <div class="select-wf wf" style="flex:1">▾ Dupliquer depuis : Déroulement</div>
+            <button class="btn-wf">Dupliquer</button>
+          </div>
+          <p class="note" style="margin:0 0 10px">Copie les créneaux de la commission choisie comme point de départ ; la grille obtenue reste ensuite indépendante.</p>
+          <div class="wf-label" style="margin-bottom:8px">Ses créneaux — samedi 1er mai</div>
+          <div class="field-grid">
+            <div class="field wf"><span class="wf-label">Créneau 1 — début</span><span class="input-wf wf"></span><span class="wf-label">fin</span><span class="input-wf wf"></span></div>
+            <div class="field wf"><span class="wf-label">Créneau 2 — début</span><span class="input-wf wf"></span><span class="wf-label">fin</span><span class="input-wf wf"></span></div>
+            <div class="field wf"><span class="wf-label">Créneau 3 — début</span><span class="input-wf wf"></span><span class="wf-label">fin</span><span class="input-wf wf"></span></div>
+            <div class="field wf" style="justify-content:center; align-items:center; color:var(--muted); font-size:12px">+ ajouter un créneau</div>
+          </div>
+          <p class="note" style="margin-top:10px">Ces horaires ne s'appliquent qu'à <em>Secrétariat de table</em>. Pour une autre commission (même nouvellement passée en grille propre), choisir cette commission dans le sélecteur ci-dessus et saisir ses propres créneaux — même si deux commissions finissent par avoir des horaires identiques, ce sont deux saisies indépendantes.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREEN 5 -->
+<section class="screen" id="s5">
+  <div class="screen-head"><h2>Admin — commissions</h2><span class="screen-tag">Référentiel</span></div>
+  <p class="note">Liste des commissions disponibles ; l'admin peut en ajouter de nouvelles à tout moment.</p>
+
+  <div class="admin-layout">
+    <div class="admin-nav wf" style="padding:10px">
+      <div class="admin-nav-item">Besoins</div>
+      <div class="admin-nav-item">Créneaux</div>
+      <div class="admin-nav-item sel">Commissions</div>
+      <div class="admin-nav-item">Synchro form</div>
+      <div class="admin-nav-item">Générer planning</div>
+    </div>
+
+    <div class="panel wf">
+      <div class="toolbar-row" style="margin-top:0">
+        <div class="search-wf wf" style="flex:1">🔍 Rechercher une commission…</div>
+        <button class="btn-wf primary">+ Nouvelle commission</button>
+      </div>
+      <div>
+        <div class="comm-row">
+          <div class="comm-main">
+            <span>Animation</span>
+            <div class="poste-list">
+              <span class="poste-item">· Mascotte</span>
+              <span class="poste-item">· Tombola gradins</span>
+              <span class="poste-item">· Micro-trottoir</span>
+              <span class="poste-item">· Stand tombola</span>
+              <span class="poste-item">· Photo booth</span>
+            </div>
+          </div>
+          <div class="comm-meta"><span class="grille-badge">grille générale</span><span class="pill">5 postes</span><button class="btn-wf">Gérer les postes</button></div>
+        </div>
+        <div class="comm-row"><div class="comm-main"><span>Accueil</span></div><div class="comm-meta"><span class="grille-badge">grille générale</span><span class="pill">active</span></div></div>
+        <div class="comm-row"><div class="comm-main"><span>Transport</span></div><div class="comm-meta"><span class="grille-badge">grille générale</span><span class="pill">active</span></div></div>
+        <div class="comm-row"><div class="comm-main"><span>Restauration</span></div><div class="comm-meta"><span class="grille-badge">grille générale</span><span class="pill">active</span></div></div>
+        <div class="comm-row"><div class="comm-main"><span>Friture / cuisson / grillade</span></div><div class="comm-meta"><span class="grille-badge">grille générale</span><span class="pill">active</span></div></div>
+        <div class="comm-row"><div class="comm-main"><span>Boutique</span></div><div class="comm-meta"><span class="grille-badge">grille générale</span><span class="pill">active</span></div></div>
+        <div class="comm-row"><div class="comm-main"><span>Contrôle des accès</span></div><div class="comm-meta"><span class="grille-badge">grille générale</span><span class="pill">active</span></div></div>
+        <div class="comm-row"><div class="comm-main"><span>Hébergement ISAAC de l'ÉTOILE <span class="wf-label">(nuit possible)</span></span></div><div class="comm-meta"><span class="grille-badge">grille générale</span><span class="pill">active</span></div></div>
+        <div class="comm-row"><div class="comm-main"><span>Déroulement <span class="wf-label">(connaissance déroulement requise)</span></span></div><div class="comm-meta"><span class="grille-badge propre">grille propre</span><span class="pill">active</span></div></div>
+        <div class="comm-row"><div class="comm-main"><span>Sonorisation <span class="wf-label">(connaissance déroulement requise)</span></span></div><div class="comm-meta"><span class="grille-badge propre">grille propre</span><span class="pill">active</span></div></div>
+        <div class="comm-row"><div class="comm-main"><span>Secrétariat de table</span></div><div class="comm-meta"><span class="grille-badge propre">grille propre</span><span class="pill">active</span></div></div>
+        <div class="comm-row"><div class="comm-main"><span>Juge de ligne <span class="wf-label">(N2 requis)</span></span></div><div class="comm-meta"><span class="grille-badge propre">grille propre</span><span class="pill">active</span></div></div>
+        <div class="comm-row"><div class="comm-main"><span>Remise des récompenses</span></div><div class="comm-meta"><span class="grille-badge">grille générale</span><span class="pill">active</span></div></div>
+      </div>
+      <p class="note" style="margin-top:14px">Enchaînement libre, sans pause obligatoire, pour toute commission sur grille propre (ici « Officiels »).</p>
+
+      <div class="panel wf" style="margin-top:18px">
+        <div class="screen-head" style="margin-bottom:0">
+          <h3>Gestion des postes — commission <em>Animation</em></h3>
+        </div>
+        <p class="note" style="margin:4px 0 12px">Le besoin de chaque poste par créneau se saisit dans l'écran Besoins ; la somme doit égaler le besoin de la commission.</p>
+
+        <div class="poste-edit-row">
+          <span class="poste-drag">⠿</span>
+          <span class="input-wf wf" style="display:flex; align-items:center; padding:0 8px">Mascotte</span>
+          <button class="btn-wf danger">Supprimer</button>
+        </div>
+        <div class="poste-edit-row">
+          <span class="poste-drag">⠿</span>
+          <span class="input-wf wf" style="display:flex; align-items:center; padding:0 8px">Tombola gradins</span>
+          <button class="btn-wf danger">Supprimer</button>
+        </div>
+        <div class="poste-edit-row">
+          <span class="poste-drag">⠿</span>
+          <span class="input-wf wf" style="display:flex; align-items:center; padding:0 8px">Micro-trottoir</span>
+          <button class="btn-wf danger">Supprimer</button>
+        </div>
+        <div class="poste-edit-row">
+          <span class="poste-drag">⠿</span>
+          <span class="input-wf wf" style="display:flex; align-items:center; padding:0 8px">Stand tombola</span>
+          <button class="btn-wf danger">Supprimer</button>
+        </div>
+        <div class="poste-edit-row">
+          <span class="poste-drag">⠿</span>
+          <span class="input-wf wf" style="display:flex; align-items:center; padding:0 8px">Photo booth</span>
+          <button class="btn-wf danger">Supprimer</button>
+        </div>
+        <div class="poste-edit-row">
+          <span class="poste-drag" style="visibility:hidden">⠿</span>
+          <span class="input-wf wf ghost" style="display:flex; align-items:center; padding:0 8px; color:var(--muted)">+ Nom du nouveau poste…</span>
+          <button class="btn-wf">Ajouter</button>
+        </div>
+
+        <div class="toolbar-row" style="justify-content:space-between">
+          <button class="btn-wf danger" style="border-style:dashed">Retirer tous les postes <span class="wf-label">(repasse la commission en affectation globale)</span></button>
+          <button class="btn-wf primary">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREEN 6 -->
+<section class="screen" id="s6">
+  <div class="screen-head"><h2>Admin — synchro Google Form</h2><span class="screen-tag">Import des soumissions</span></div>
+  <p class="note">Suivi de la synchronisation avec la Google Sheet de réponses et accès à l'envoi manuel des plannings.</p>
+
+  <div class="sync-status">
+    <div class="stat-wf wf"><div class="stat-num">312</div><div class="stat-lbl">soumissions importées</div></div>
+    <div class="stat-wf wf"><div class="stat-num">+7</div><div class="stat-lbl">depuis la dernière synchro</div></div>
+    <div class="stat-wf wf"><div class="stat-num">09:41</div><div class="stat-lbl">dernière synchro</div></div>
+  </div>
+
+  <div class="panel wf" style="margin-bottom:16px">
+    <h3>Doublons potentiels</h3>
+    <div class="comm-row"><span>Chevalier · Inès <span class="wf-label">— même email, 2 événements</span></span><button class="btn-wf">Fusionner</button></div>
+    <div class="comm-row"><span>Martin · Hugo <span class="wf-label">— même email, même événement</span></span><button class="btn-wf">Voir</button></div>
+  </div>
+
+  <div class="panel wf">
+    <h3>Envoi des plannings par email</h3>
+    <div class="toolbar-row" style="margin-top:8px">
+      <div class="select-wf wf">▾ Indiv GAM/GAF</div>
+      <button class="btn-wf primary">Envoyer les plannings individuels</button>
+    </div>
+    <p class="note">Envoi manuel, événement par événement, depuis la boîte mail dédiée de l'association.</p>
+  </div>
+</section>
+
+</main>
+
+<script>
+(function(){
+  var tabs = document.querySelectorAll('.tab');
+  var screens = document.querySelectorAll('.screen');
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      tabs.forEach(function(t){t.classList.remove('active')});
+      screens.forEach(function(s){s.classList.remove('active')});
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.screen).classList.add('active');
+    });
+  });
+})();
+</script>
