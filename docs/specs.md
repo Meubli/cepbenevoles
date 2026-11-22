@@ -76,6 +76,11 @@ Les libellés du form (section 3.1, "Poste(s) souhaité(s)") ne sont **pas inter
 - Un même service account (un seul, cf. `technical-specs.md` §1) accède à toutes les Sheets, via l'API Google Sheets — chaque Sheet doit lui être partagée individuellement par l'admin.
 - Synchronisation : job planifié (ex. toutes les 10-15 min) **+** bouton "Synchroniser maintenant" côté admin — regroupe les événements actifs (non archivés) par `sheet_id` distinct, lit chaque Sheet une seule fois même si plusieurs événements la partagent, puis répartit les lignes par événement selon les sections de disponibilité/souhaits propres à chacun.
 - Un événement sans `sheet_id` renseigné n'est jamais synchronisé automatiquement (seule la saisie manuelle, cf. 3.4, reste possible pour lui).
+- **Validation à l'enregistrement** : saisir/modifier `sheet_id` sur un `Evenement` (possible dès l'écran de création, pas seulement en modification) déclenche un appel réel à l'API Google Sheets (lecture d'une plage minimale) avant d'accepter l'enregistrement.
+  - Sheet introuvable (404) → échec, message \"Cette Sheet n'existe pas ou son ID est incorrect\".
+  - Sheet existante mais non partagée avec le service account (403) → échec, message distinct \"Sheet trouvée mais non partagée avec le compte de service — partagez-la en lecture d'abord\" (avec rappel de l'email du service account).
+  - Si le `sheet_id` est vide (champ facultatif), aucun appel n'est fait — enregistrement toujours accepté (cf. point précédent, événement non synchronisé).
+- **Autocomplétion** : le champ `sheet_id` propose en saisie les `sheet_id` distincts déjà utilisés par des événements **non archivés** (pour réutiliser facilement une Sheet existante, cas France Indiv/TeamGym 2027) ; reste un champ texte libre, une nouvelle valeur est toujours acceptée après validation ci-dessus.
 - Chaque ligne de la Sheet = une **soumission**. Clé d'import = (row index Sheet + horodatage de réponse) pour ne jamais réimporter deux fois la même ligne.
 - Décision actée : **pas de dédoublonnage automatique** entre soumissions (une personne qui soumet deux fois crée deux soumissions distinctes). L'admin pourra marquer manuellement deux soumissions comme doublon/fusionnées dans le planning (cf. 9).
 - Les souhaits de commission sont résolus via l'écran "Mapping form" (cf. 3.2), pas par correspondance automatique de texte.

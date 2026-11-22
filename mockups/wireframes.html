@@ -1231,9 +1231,9 @@ table.plan th:first-child{background:var(--accent-weak); z-index:2}
         <h3>Modifier — France Indiv Perf GAM/GAF</h3>
         <div class="field-grid" style="margin-top:12px">
           <div class="field wf"><span class="wf-label">Nom</span><span class="input-wf wf" style="display:flex;align-items:center;padding:0 8px">France Indiv Perf GAM/GAF</span></div>
-          <div class="field wf"><span class="wf-label">ID Google Sheet source <span class="optional-tag">— facultatif, plusieurs événements peuvent partager le même ID</span></span><span class="input-wf wf" style="display:flex;align-items:center;padding:0 8px">1VanRtLnS2lF5XpUtUpjyv9MX2lQh7EPcAZCIPsm3jsc</span></div>
+          <div class="field wf"><span class="wf-label">ID Google Sheet source <span class="optional-tag">— facultatif, plusieurs événements peuvent partager le même ID</span></span><span class="input-wf wf" style="display:flex;align-items:center;padding:0 8px">1VanRtLnS2lF5XpUtUpjyv9MX2lQh7EPcAZCIPsm3jsc</span><span class="pill" style="border-color:#4a8a4a; color:#4a8a4a; width:fit-content">✓ accessible</span></div>
         </div>
-        <p class="note" style="margin-top:10px">Sans ID renseigné, l'événement n'est jamais synchronisé automatiquement (seule la saisie manuelle de bénévole reste possible, cf. spec §3.4).</p>
+        <p class="note" style="margin-top:10px">Sans ID renseigné, l'événement n'est jamais synchronisé automatiquement (seule la saisie manuelle de bénévole reste possible, cf. spec §3.4). L'enregistrement vérifie que la Sheet existe et est partagée avec le compte de service, sinon il échoue (message distinguant les deux cas).</p>
       </div>
 
       <div style="margin-top:22px; padding-top:16px; border-top:1px solid var(--line)">
@@ -1243,7 +1243,15 @@ table.plan th:first-child{background:var(--accent-weak); z-index:2}
           <div class="field wf"><span class="wf-label">Date début</span><span class="input-wf wf"></span></div>
           <div class="field wf"><span class="wf-label">Date fin</span><span class="input-wf wf"></span></div>
           <div class="field wf"><span class="wf-label">Lieu</span><span class="input-wf wf"></span></div>
+          <div class="field wf">
+            <span class="wf-label">ID Google Sheet source <span class="optional-tag">— facultatif</span></span>
+            <span class="input-wf wf" style="display:flex;align-items:center;padding:0 8px; color:var(--muted)">Saisir ou choisir…</span>
+            <div class="search-list" style="margin-top:4px">
+              <div class="search-row">1VanRtL…sm3jsc <span class="optional-tag">— utilisé par Indiv GAM/GAF, TeamGym Performance</span></div>
+            </div>
+          </div>
         </div>
+        <p class="note" style="margin-top:10px">Autocomplétion sur les <code>sheet_id</code> déjà utilisés par des événements non archivés (ex. réutiliser la Sheet 2027 ci-dessus) ; champ libre, toute nouvelle valeur reste acceptée après la même vérification d'accès.</p>
         <button class="btn-wf primary" style="margin-top:12px">Créer l'événement</button>
       </div>
     </div>
