@@ -12,10 +12,20 @@ pub struct NewAdmin {
     pub is_superadmin: bool,
 }
 
+/// Kept well above any plausible real value — just enough to stop a
+/// pasted-essay-length value from breaking the Admins screen's layout (cf.
+/// the same limit on `Commission.nom`).
+pub const NOM_MAX_LEN: usize = 100;
+pub const EMAIL_MAX_LEN: usize = 255;
+
 #[derive(Debug, thiserror::Error)]
 pub enum AdminError {
     #[error("le nom, le prénom et l'email sont obligatoires")]
     MissingField,
+    #[error("le nom et le prénom ne peuvent pas dépasser {NOM_MAX_LEN} caractères")]
+    NomTooLong,
+    #[error("l'email ne peut pas dépasser {EMAIL_MAX_LEN} caractères")]
+    EmailTooLong,
     #[error("un admin avec cet email existe déjà")]
     EmailTaken,
     #[error("admin introuvable")]
@@ -41,6 +51,14 @@ pub async fn create_admin(pool: &sqlx::PgPool, input: NewAdmin) -> Result<Uuid, 
         || input.email.trim().is_empty()
     {
         return Err(AdminError::MissingField);
+    }
+    if input.nom.trim().chars().count() > NOM_MAX_LEN
+        || input.prenom.trim().chars().count() > NOM_MAX_LEN
+    {
+        return Err(AdminError::NomTooLong);
+    }
+    if input.email.trim().chars().count() > EMAIL_MAX_LEN {
+        return Err(AdminError::EmailTooLong);
     }
 
     let id: Uuid = sqlx::query_scalar(

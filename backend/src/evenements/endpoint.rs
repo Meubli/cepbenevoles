@@ -75,6 +75,8 @@ fn unprocessable(err: &impl ToString) -> Response {
 fn save_error_response(err: SaveEvenementError) -> Response {
     match err {
         SaveEvenementError::EmptyNom
+        | SaveEvenementError::NomTooLong
+        | SaveEvenementError::LieuTooLong
         | SaveEvenementError::InvalidDates
         | SaveEvenementError::SheetId(SheetIdError::NotFound)
         | SaveEvenementError::SheetId(SheetIdError::Forbidden)

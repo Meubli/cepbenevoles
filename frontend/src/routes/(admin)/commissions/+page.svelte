@@ -226,13 +226,13 @@
 				<div class="field wf">
 					<label>
 						Nom
-						<input class="input-wf" bind:value={createForm.nom} required />
+						<input class="input-wf" bind:value={createForm.nom} maxlength="100" required />
 					</label>
 				</div>
 				<div class="field wf">
 					<label>
 						Prérequis (texte libre)
-						<input class="input-wf" bind:value={createForm.prerequis_libre_texte} />
+						<input class="input-wf" bind:value={createForm.prerequis_libre_texte} maxlength="500" />
 					</label>
 				</div>
 				<div class="field wf">
@@ -357,13 +357,13 @@
 					<div class="field wf">
 						<label>
 							Nom
-							<input class="input-wf" bind:value={editForm.nom} required />
+							<input class="input-wf" bind:value={editForm.nom} maxlength="100" required />
 						</label>
 					</div>
 					<div class="field wf">
 						<label>
 							Prérequis (texte libre)
-							<input class="input-wf" bind:value={editForm.prerequis_libre_texte} />
+							<input class="input-wf" bind:value={editForm.prerequis_libre_texte} maxlength="500" />
 						</label>
 					</div>
 					<div class="field wf">
@@ -475,6 +475,7 @@
 					<input
 						class="input-wf wf"
 						placeholder="+ Nom du nouveau poste…"
+						maxlength="100"
 						bind:value={newPosteNom}
 					/>
 					<button class="btn-wf" onclick={() => addPoste(c.id)}>Ajouter</button>

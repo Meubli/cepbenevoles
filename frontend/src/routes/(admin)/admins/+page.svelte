@@ -140,19 +140,25 @@
 				<div class="field wf">
 					<label>
 						Nom
-						<input class="input-wf" bind:value={createForm.nom} required />
+						<input class="input-wf" bind:value={createForm.nom} maxlength="100" required />
 					</label>
 				</div>
 				<div class="field wf">
 					<label>
 						Prénom
-						<input class="input-wf" bind:value={createForm.prenom} required />
+						<input class="input-wf" bind:value={createForm.prenom} maxlength="100" required />
 					</label>
 				</div>
 				<div class="field wf">
 					<label>
 						Email
-						<input class="input-wf" type="email" bind:value={createForm.email} required />
+						<input
+							class="input-wf"
+							type="email"
+							bind:value={createForm.email}
+							maxlength="255"
+							required
+						/>
 					</label>
 				</div>
 				<div class="field wf" style="flex-direction:row; align-items:center; gap:6px">

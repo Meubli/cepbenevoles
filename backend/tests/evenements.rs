@@ -271,6 +271,31 @@ async fn empty_nom_is_rejected() {
 }
 
 #[tokio::test]
+async fn too_long_nom_is_rejected() {
+    let pool = spawn_test_db().await;
+    let admin_id = insert_admin(&pool).await;
+
+    let err = create_evenement(&pool, None, true, admin_id, input(&"a".repeat(201), None))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, SaveEvenementError::NomTooLong));
+}
+
+#[tokio::test]
+async fn too_long_lieu_is_rejected() {
+    let pool = spawn_test_db().await;
+    let admin_id = insert_admin(&pool).await;
+
+    let mut bad = input("Indiv", None);
+    bad.lieu = Some("a".repeat(201));
+
+    let err = create_evenement(&pool, None, true, admin_id, bad)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, SaveEvenementError::LieuTooLong));
+}
+
+#[tokio::test]
 async fn sheet_id_without_bloc_is_rejected() {
     let pool = spawn_test_db().await;
     let admin_id = insert_admin(&pool).await;

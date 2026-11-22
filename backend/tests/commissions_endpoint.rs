@@ -140,6 +140,72 @@ async fn empty_nom_is_rejected() {
 }
 
 #[tokio::test]
+async fn too_long_nom_is_rejected() {
+    let pool = spawn_test_db().await;
+    let token = insert_session(&pool).await;
+    let router = app(base_state(pool), None);
+
+    let response = request(
+        router,
+        "POST",
+        "/api/commissions",
+        &token,
+        Some(commission_body(&"a".repeat(101))),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn too_long_prerequis_is_rejected() {
+    let pool = spawn_test_db().await;
+    let token = insert_session(&pool).await;
+    let router = app(base_state(pool), None);
+
+    let mut body = commission_body("Sécurité");
+    body["prerequis_libre_texte"] = json!("a".repeat(501));
+
+    let response = request(router, "POST", "/api/commissions", &token, Some(body)).await;
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn too_long_poste_nom_is_rejected() {
+    let pool = spawn_test_db().await;
+    let token = insert_session(&pool).await;
+    let router = app(base_state(pool), None);
+
+    let mut body = commission_body("Logistique");
+    body["a_des_postes"] = json!(true);
+    let response = request(
+        router.clone(),
+        "POST",
+        "/api/commissions",
+        &token,
+        Some(body),
+    )
+    .await;
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let commission_id = json["id"].as_str().unwrap();
+
+    let response = request(
+        router,
+        "POST",
+        &format!("/api/commissions/{commission_id}/postes"),
+        &token,
+        Some(json!({"nom": "a".repeat(101)})),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
 async fn duplicate_nom_is_rejected() {
     let pool = spawn_test_db().await;
     let token = insert_session(&pool).await;

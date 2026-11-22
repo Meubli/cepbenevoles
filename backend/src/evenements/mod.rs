@@ -125,10 +125,20 @@ pub enum BlocError {
     Database(#[from] sqlx::Error),
 }
 
+/// Kept well above any plausible real name — just enough to stop a
+/// pasted-essay-length value from breaking the admin screens' layout (cf.
+/// the same limit on `Commission.nom`).
+pub const NOM_MAX_LEN: usize = 200;
+pub const LIEU_MAX_LEN: usize = 200;
+
 #[derive(Debug, thiserror::Error)]
 pub enum SaveEvenementError {
     #[error("le nom de l'événement ne peut pas être vide")]
     EmptyNom,
+    #[error("le nom de l'événement ne peut pas dépasser {NOM_MAX_LEN} caractères")]
+    NomTooLong,
+    #[error("le lieu ne peut pas dépasser {LIEU_MAX_LEN} caractères")]
+    LieuTooLong,
     #[error("date_fin doit être postérieure ou égale à date_debut")]
     InvalidDates,
     #[error(transparent)]
@@ -179,6 +189,23 @@ async fn validate_bloc(
     Ok(())
 }
 
+fn validate_nom_lieu(input: &EvenementInput) -> Result<(), SaveEvenementError> {
+    if input.nom.trim().is_empty() {
+        return Err(SaveEvenementError::EmptyNom);
+    }
+    if input.nom.trim().chars().count() > NOM_MAX_LEN {
+        return Err(SaveEvenementError::NomTooLong);
+    }
+    if input
+        .lieu
+        .as_deref()
+        .is_some_and(|l| l.chars().count() > LIEU_MAX_LEN)
+    {
+        return Err(SaveEvenementError::LieuTooLong);
+    }
+    Ok(())
+}
+
 pub async fn create_evenement(
     pool: &sqlx::PgPool,
     sync: Option<&SyncContext>,
@@ -186,9 +213,7 @@ pub async fn create_evenement(
     admin_id: Uuid,
     input: EvenementInput,
 ) -> Result<Uuid, SaveEvenementError> {
-    if input.nom.trim().is_empty() {
-        return Err(SaveEvenementError::EmptyNom);
-    }
+    validate_nom_lieu(&input)?;
     if input.date_fin < input.date_debut {
         return Err(SaveEvenementError::InvalidDates);
     }
@@ -233,9 +258,7 @@ pub async fn update_evenement(
     id: Uuid,
     input: EvenementInput,
 ) -> Result<(), SaveEvenementError> {
-    if input.nom.trim().is_empty() {
-        return Err(SaveEvenementError::EmptyNom);
-    }
+    validate_nom_lieu(&input)?;
     if input.date_fin < input.date_debut {
         return Err(SaveEvenementError::InvalidDates);
     }

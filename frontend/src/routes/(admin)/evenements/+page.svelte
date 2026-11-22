@@ -200,7 +200,7 @@
 					<div class="field wf">
 						<label>
 							Nom
-							<input class="input-wf" bind:value={editForm.nom} required />
+							<input class="input-wf" bind:value={editForm.nom} maxlength="200" required />
 						</label>
 					</div>
 					<div class="field wf">
@@ -218,7 +218,7 @@
 					<div class="field wf">
 						<label>
 							Lieu
-							<input class="input-wf" bind:value={editForm.lieu} />
+							<input class="input-wf" bind:value={editForm.lieu} maxlength="200" />
 						</label>
 					</div>
 					<div class="field wf">
@@ -267,7 +267,7 @@
 				<div class="field wf">
 					<label>
 						Nom
-						<input class="input-wf" bind:value={createForm.nom} required />
+						<input class="input-wf" bind:value={createForm.nom} maxlength="200" required />
 					</label>
 				</div>
 				<div class="field wf">
@@ -285,7 +285,7 @@
 				<div class="field wf">
 					<label>
 						Lieu
-						<input class="input-wf" bind:value={createForm.lieu} />
+						<input class="input-wf" bind:value={createForm.lieu} maxlength="200" />
 					</label>
 				</div>
 				<div class="field wf">

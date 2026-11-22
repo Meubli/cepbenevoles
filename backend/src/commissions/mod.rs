@@ -17,10 +17,21 @@ pub struct CommissionInput {
     pub couleur: String,
 }
 
+/// Kept well above any plausible real name — just enough to stop a
+/// pasted-essay-length value from breaking the admin screens' layout
+/// (found live: an unbroken string with no spaces doesn't wrap and
+/// overflows its row).
+pub const NOM_MAX_LEN: usize = 100;
+pub const PREREQUIS_MAX_LEN: usize = 500;
+
 #[derive(Debug, thiserror::Error)]
 pub enum SaveCommissionError {
     #[error("le nom de la commission ne peut pas être vide")]
     EmptyNom,
+    #[error("le nom de la commission ne peut pas dépasser {NOM_MAX_LEN} caractères")]
+    NomTooLong,
+    #[error("le texte de prérequis ne peut pas dépasser {PREREQUIS_MAX_LEN} caractères")]
+    PrerequisTooLong,
     #[error("une commission nommée \"{0}\" existe déjà")]
     DuplicateNom(String),
     #[error("grille_creneaux doit être \"generale\" ou \"propre\"")]
@@ -58,6 +69,16 @@ fn validate_grille(grille: &str) -> bool {
 fn validate_input(input: &CommissionInput) -> Result<(), SaveCommissionError> {
     if input.nom.trim().is_empty() {
         return Err(SaveCommissionError::EmptyNom);
+    }
+    if input.nom.trim().chars().count() > NOM_MAX_LEN {
+        return Err(SaveCommissionError::NomTooLong);
+    }
+    if input
+        .prerequis_libre_texte
+        .as_deref()
+        .is_some_and(|p| p.chars().count() > PREREQUIS_MAX_LEN)
+    {
+        return Err(SaveCommissionError::PrerequisTooLong);
     }
     if !validate_grille(&input.grille_creneaux) {
         return Err(SaveCommissionError::InvalidGrille);
@@ -157,6 +178,8 @@ pub async fn update_commission(
 pub enum PosteError {
     #[error("le nom du poste ne peut pas être vide")]
     EmptyNom,
+    #[error("le nom du poste ne peut pas dépasser {NOM_MAX_LEN} caractères")]
+    NomTooLong,
     #[error("commission introuvable")]
     CommissionNotFound,
     #[error("un poste nommé \"{0}\" existe déjà pour cette commission")]
@@ -179,6 +202,9 @@ pub async fn add_poste(
 ) -> Result<Uuid, PosteError> {
     if nom.trim().is_empty() {
         return Err(PosteError::EmptyNom);
+    }
+    if nom.trim().chars().count() > NOM_MAX_LEN {
+        return Err(PosteError::NomTooLong);
     }
 
     let commission_exists: bool =

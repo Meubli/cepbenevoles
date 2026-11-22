@@ -130,6 +130,8 @@ impl From<CommissionBody> for CommissionInput {
 fn commission_error_response(err: SaveCommissionError) -> Response {
     match err {
         SaveCommissionError::EmptyNom
+        | SaveCommissionError::NomTooLong
+        | SaveCommissionError::PrerequisTooLong
         | SaveCommissionError::DuplicateNom(_)
         | SaveCommissionError::InvalidGrille
         | SaveCommissionError::InvalidCouleur
@@ -176,7 +178,10 @@ pub struct PosteBody {
 
 fn poste_error_response(err: PosteError) -> Response {
     match err {
-        PosteError::EmptyNom | PosteError::DuplicateNom(_) | PosteError::InUse => (
+        PosteError::EmptyNom
+        | PosteError::NomTooLong
+        | PosteError::DuplicateNom(_)
+        | PosteError::InUse => (
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(json!({"error": err.to_string()})),
         )

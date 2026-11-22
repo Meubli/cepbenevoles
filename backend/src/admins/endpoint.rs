@@ -47,7 +47,10 @@ pub struct NewAdminBody {
 
 fn admin_error_response(err: AdminError) -> Response {
     match err {
-        AdminError::MissingField | AdminError::EmailTaken => (
+        AdminError::MissingField
+        | AdminError::NomTooLong
+        | AdminError::EmailTooLong
+        | AdminError::EmailTaken => (
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(json!({"error": err.to_string()})),
         )

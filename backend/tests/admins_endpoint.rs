@@ -154,6 +154,35 @@ async fn creating_an_admin_with_a_taken_email_is_422() {
 }
 
 #[tokio::test]
+async fn too_long_nom_is_rejected() {
+    let pool = spawn_test_db().await;
+    let super_id = insert_admin(&pool, "super@example.org", true).await;
+    insert_session(&pool, super_id, "super-token").await;
+    let router = app(base_state(pool), None);
+
+    let response = router
+        .oneshot(
+            Request::post("/api/admins")
+                .header("cookie", "session_id=super-token")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "nom": "a".repeat(101),
+                        "prenom": "Y",
+                        "email": "long-nom@example.org",
+                        "is_superadmin": false,
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
 async fn a_superadmin_promotes_a_plain_admin() {
     let pool = spawn_test_db().await;
     let super_id = insert_admin(&pool, "super@example.org", true).await;

@@ -309,6 +309,13 @@ a.admin-nav-item:hover {
 	font-size: 14px;
 	margin-bottom: 3px;
 }
+/* A commission/admin name has no length limit server-side (free text) and
+   can be one long unbroken "word" — without this, it overflows its
+   container horizontally instead of wrapping (found live: a very long
+   commission name broke the Commissions screen's layout). */
+.admin-shell h3 {
+	overflow-wrap: anywhere;
+}
 
 .field-grid {
 	display: grid;
@@ -364,6 +371,7 @@ select.input-wf {
 	flex-direction: column;
 	gap: 2px;
 	min-width: 0;
+	overflow-wrap: anywhere;
 }
 .comm-meta {
 	display: flex;
