@@ -19,6 +19,11 @@ pub struct Config {
     /// technical-specs.md §3). Absent in local dev, where the frontend is
     /// served separately by `vite dev` (proxying `/api` to this backend).
     pub static_dir: Option<String>,
+    /// Email of the first superadmin to seed at startup (specs.md §11.4),
+    /// idempotent (no-op if an admin with that email already exists).
+    /// Absent: no bootstrap, nobody can log in until a row exists in
+    /// `admins`.
+    pub bootstrap_superadmin_email: Option<String>,
 }
 
 impl Config {
@@ -42,6 +47,7 @@ impl Config {
                 .parse()
                 .expect("SYNC_INTERVAL_SECONDS must be a non-negative integer"),
             static_dir: std::env::var("STATIC_DIR").ok(),
+            bootstrap_superadmin_email: std::env::var("BOOTSTRAP_SUPERADMIN_EMAIL").ok(),
         }
     }
 }

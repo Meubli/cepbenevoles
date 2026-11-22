@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO admins (email, is_superadmin) VALUES ($1, true)\n         ON CONFLICT (email) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "28f3bb2d70c7d0fc5108bd0c92c947f3bad264a33a6e0f96a6be6c01e33afc99"
+}

@@ -1,0 +1,37 @@
+name: benefrance-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: benefrance_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - benefrance-dev-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI, http://127.0.0.1:8025
+
+  sheets-stub:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./e2e/sheets-stub:/app:ro
+    command: ["node", "server.mjs"]
+    environment:
+      PORT: "8089"
+    ports:
+      - "8089:8089"
+
+volumes:
+  benefrance-dev-postgres:

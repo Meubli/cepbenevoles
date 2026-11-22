@@ -28,6 +28,8 @@ async fn main() {
         .await
         .expect("failed to run migrations");
 
+    bootstrap_superadmin(&db, &config.bootstrap_superadmin_email).await;
+
     let sync = build_sync_context(&config.google_service_account_key_path);
 
     if let Some(sync) = sync.clone() {
@@ -60,6 +62,29 @@ async fn main() {
     tracing::info!("listening on {}", config.listen_addr);
 
     axum::serve(listener, router).await.expect("server error");
+}
+
+/// Seeds the first superadmin so someone can log in at all (specs.md
+/// §11.4). Idempotent: a conflict on the unique email is a no-op, so this
+/// is safe to run on every startup.
+async fn bootstrap_superadmin(db: &PgPool, email: &Option<String>) {
+    let Some(email) = email else {
+        tracing::info!("no BOOTSTRAP_SUPERADMIN_EMAIL configured — skipping superadmin seed");
+        return;
+    };
+
+    let inserted = sqlx::query!(
+        "INSERT INTO admins (email, is_superadmin) VALUES ($1, true)
+         ON CONFLICT (email) DO NOTHING",
+        email,
+    )
+    .execute(db)
+    .await
+    .expect("failed to seed bootstrap superadmin");
+
+    if inserted.rows_affected() > 0 {
+        tracing::info!(%email, "seeded bootstrap superadmin");
+    }
 }
 
 fn build_sync_context(key_path: &Option<String>) -> Option<SyncContext> {
