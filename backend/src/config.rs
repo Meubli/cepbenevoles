@@ -11,6 +11,10 @@ pub struct Config {
     /// scheduler and manual sync endpoint are then disabled rather than
     /// failing startup.
     pub google_service_account_key_path: Option<String>,
+    /// Base URL of the Sheets API. Overridable so dev can point it at the
+    /// local `sheets-stub` (`docker-compose.dev.yml`) instead of the real
+    /// Google API.
+    pub sheets_api_base_url: String,
     /// Seconds between scheduled syncs (specs.md §3.3: "toutes les 10-15
     /// min"). 0 disables the periodic scheduler even if a key is
     /// configured — manual sync still works.
@@ -42,6 +46,8 @@ impl Config {
             smtp_from: std::env::var("SMTP_FROM")
                 .unwrap_or_else(|_| "benefrance@example.org".to_string()),
             google_service_account_key_path: std::env::var("GOOGLE_SERVICE_ACCOUNT_KEY_PATH").ok(),
+            sheets_api_base_url: std::env::var("SHEETS_API_BASE_URL")
+                .unwrap_or_else(|_| "https://sheets.googleapis.com".to_string()),
             sync_interval_seconds: std::env::var("SYNC_INTERVAL_SECONDS")
                 .unwrap_or_else(|_| "600".to_string())
                 .parse()

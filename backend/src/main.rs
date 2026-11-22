@@ -9,8 +9,6 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use tokio::sync::Mutex;
 
-const SHEETS_API_BASE_URL: &str = "https://sheets.googleapis.com";
-
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
@@ -30,7 +28,10 @@ async fn main() {
 
     bootstrap_superadmin(&db, &config.bootstrap_superadmin_email).await;
 
-    let sync = build_sync_context(&config.google_service_account_key_path);
+    let sync = build_sync_context(
+        &config.google_service_account_key_path,
+        &config.sheets_api_base_url,
+    );
 
     if let Some(sync) = sync.clone() {
         if config.sync_interval_seconds > 0 {
@@ -87,7 +88,7 @@ async fn bootstrap_superadmin(db: &PgPool, email: &Option<String>) {
     }
 }
 
-fn build_sync_context(key_path: &Option<String>) -> Option<SyncContext> {
+fn build_sync_context(key_path: &Option<String>, sheets_api_base_url: &str) -> Option<SyncContext> {
     let key_path = key_path.as_ref()?;
     let key_json = std::fs::read_to_string(key_path).unwrap_or_else(|e| {
         panic!("failed to read GOOGLE_SERVICE_ACCOUNT_KEY_PATH ({key_path}): {e}")
@@ -97,7 +98,7 @@ fn build_sync_context(key_path: &Option<String>) -> Option<SyncContext> {
 
     Some(SyncContext {
         auth: GoogleAuth::new(key),
-        sheets: SheetsClient::new(SHEETS_API_BASE_URL.to_string()),
+        sheets: SheetsClient::new(sheets_api_base_url.to_string()),
         running: Arc::new(Mutex::new(())),
     })
 }
