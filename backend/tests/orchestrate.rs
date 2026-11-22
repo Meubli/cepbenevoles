@@ -2,7 +2,7 @@ mod common;
 
 use benefrance_backend::google_auth::{GoogleAuth, ServiceAccountKey};
 use benefrance_backend::sheets::SheetsClient;
-use benefrance_backend::sync::orchestrate::{sync_all, SheetSyncError};
+use benefrance_backend::sync::orchestrate::{sync_all, sync_all_and_record, SheetSyncError};
 use common::spawn_test_db;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -254,4 +254,91 @@ async fn archived_event_is_excluded_and_missing_bloc_is_reported() {
         no_bloc.result,
         Err(SheetSyncError::MissingBloc { .. })
     ));
+}
+
+#[tokio::test]
+async fn sync_all_and_record_writes_sync_run_and_row_errors() {
+    let pool = spawn_test_db().await;
+    let token_server = mock_token_server().await;
+    let sheets_server = MockServer::start().await;
+
+    let raw: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string("tests/fixtures/sheets_responses_form1.json").unwrap(),
+    )
+    .unwrap();
+    let mut values = raw["values"].clone();
+    // Break one data row's horodateur so it produces a RowError alongside
+    // the 3 that still parse fine.
+    values[1][0] = serde_json::Value::String("not a date".to_string());
+
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "values": values,
+        })))
+        .mount(&sheets_server)
+        .await;
+
+    insert_evenement(
+        &pool,
+        "Indiv",
+        "recorded-sheet",
+        Some("form_2027_indiv"),
+        false,
+    )
+    .await;
+
+    let auth = GoogleAuth::new(test_key(format!("{}/token", token_server.uri())));
+    let sheets = SheetsClient::new(sheets_server.uri());
+
+    sync_all_and_record(&pool, &auth, &sheets).await.unwrap();
+
+    let run_id: Uuid = sqlx::query_scalar(
+        "SELECT id FROM sync_run WHERE sheet_id = 'recorded-sheet' AND error IS NULL",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    let error_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM sync_row_error WHERE sync_run_id = $1")
+            .bind(run_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        error_count, 1,
+        "the broken-horodateur row should be recorded"
+    );
+}
+
+#[tokio::test]
+async fn sync_all_and_record_captures_sheet_level_failure() {
+    let pool = spawn_test_db().await;
+    let token_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(400).set_body_string("invalid_grant"))
+        .mount(&token_server)
+        .await;
+    let sheets_server = MockServer::start().await;
+
+    insert_evenement(
+        &pool,
+        "Indiv",
+        "failing-sheet",
+        Some("form_2027_indiv"),
+        false,
+    )
+    .await;
+
+    let auth = GoogleAuth::new(test_key(format!("{}/token", token_server.uri())));
+    let sheets = SheetsClient::new(sheets_server.uri());
+
+    sync_all_and_record(&pool, &auth, &sheets).await.unwrap();
+
+    let error: Option<String> =
+        sqlx::query_scalar("SELECT error FROM sync_run WHERE sheet_id = 'failing-sheet'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(error.is_some());
 }

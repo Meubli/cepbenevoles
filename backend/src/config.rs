@@ -6,6 +6,15 @@ pub struct Config {
     pub smtp_user: Option<String>,
     pub smtp_pass: Option<String>,
     pub smtp_from: String,
+    /// Path to the Google service-account JSON key, mounted read-only
+    /// (technical-specs.md §3, §1). Absent in local dev / e2e: the
+    /// scheduler and manual sync endpoint are then disabled rather than
+    /// failing startup.
+    pub google_service_account_key_path: Option<String>,
+    /// Seconds between scheduled syncs (specs.md §3.3: "toutes les 10-15
+    /// min"). 0 disables the periodic scheduler even if a key is
+    /// configured — manual sync still works.
+    pub sync_interval_seconds: u64,
 }
 
 impl Config {
@@ -23,6 +32,11 @@ impl Config {
             smtp_pass: std::env::var("SMTP_PASS").ok(),
             smtp_from: std::env::var("SMTP_FROM")
                 .unwrap_or_else(|_| "benefrance@example.org".to_string()),
+            google_service_account_key_path: std::env::var("GOOGLE_SERVICE_ACCOUNT_KEY_PATH").ok(),
+            sync_interval_seconds: std::env::var("SYNC_INTERVAL_SECONDS")
+                .unwrap_or_else(|_| "600".to_string())
+                .parse()
+                .expect("SYNC_INTERVAL_SECONDS must be a non-negative integer"),
         }
     }
 }

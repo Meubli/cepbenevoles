@@ -32,3 +32,4 @@ lettre = { version = "0.11.11", default-features = false, features = ["tokio1-ru
 testcontainers = "0.23.1"
 testcontainers-modules = { version = "0.11.4", features = ["postgres"] }
 wiremock = "0.6.2"
+tower = { version = "0.5.2", features = ["util"] }

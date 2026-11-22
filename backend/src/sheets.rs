@@ -3,6 +3,7 @@
 use reqwest::StatusCode;
 use serde::Deserialize;
 
+#[derive(Clone)]
 pub struct SheetsClient {
     http: reqwest::Client,
     /// Overridable so tests point this at a wiremock server instead of

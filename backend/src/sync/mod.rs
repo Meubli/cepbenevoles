@@ -6,6 +6,7 @@
 //! form-label -> commission/poste mapping (cf. specs.md §3.2) here yet —
 //! those are separate concerns, built on top of this.
 
+pub mod endpoint;
 pub mod form_2027;
 pub mod orchestrate;
 pub mod persist;

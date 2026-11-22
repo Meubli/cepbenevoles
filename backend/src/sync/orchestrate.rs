@@ -116,6 +116,76 @@ async fn sync_one_sheet(
     Ok((report, row_errors))
 }
 
+/// Runs [`sync_all`] and records one `sync_run` row per sheet (plus one
+/// `sync_row_error` row per parse error), so the Synchro screen can show
+/// "dernière synchro" / "+N depuis" / errors (specs.md §7.3) without
+/// scraping container logs. The caller (scheduler, manual-sync endpoint)
+/// only needs the returned outcomes for its own immediate response.
+pub async fn sync_all_and_record(
+    pool: &PgPool,
+    auth: &GoogleAuth,
+    sheets: &SheetsClient,
+) -> Result<Vec<SheetSyncOutcome>, sqlx::Error> {
+    let started_at = chrono::Utc::now();
+    let outcomes = sync_all(pool, auth, sheets).await?;
+
+    for outcome in &outcomes {
+        match &outcome.result {
+            Ok((report, row_errors)) => {
+                let run_id: Uuid = sqlx::query_scalar(
+                    "INSERT INTO sync_run \
+                        (sheet_id, started_at, finished_at, inserted, already_present, unrouted, skipped_availabilities) \
+                     VALUES ($1, $2, now(), $3, $4, $5, $6) \
+                     RETURNING id",
+                )
+                .bind(&outcome.sheet_id)
+                .bind(started_at)
+                .bind(report.inserted as i32)
+                .bind(report.already_present as i32)
+                .bind(report.unrouted as i32)
+                .bind(report.skipped_availabilities as i32)
+                .fetch_one(pool)
+                .await?;
+
+                for err in row_errors {
+                    let (sheet_row, message) = row_error_detail(err);
+                    sqlx::query(
+                        "INSERT INTO sync_row_error (sync_run_id, sheet_row, message) \
+                         VALUES ($1, $2, $3)",
+                    )
+                    .bind(run_id)
+                    .bind(sheet_row)
+                    .bind(message)
+                    .execute(pool)
+                    .await?;
+                }
+            }
+            Err(err) => {
+                sqlx::query(
+                    "INSERT INTO sync_run (sheet_id, started_at, finished_at, error) \
+                     VALUES ($1, $2, now(), $3)",
+                )
+                .bind(&outcome.sheet_id)
+                .bind(started_at)
+                .bind(err.to_string())
+                .execute(pool)
+                .await?;
+            }
+        }
+    }
+
+    Ok(outcomes)
+}
+
+fn row_error_detail(err: &RowError) -> (i32, String) {
+    let row_index = match err {
+        RowError::MissingField { row_index, .. }
+        | RowError::UnrecognizedValue { row_index, .. }
+        | RowError::InvalidHorodateur { row_index, .. } => *row_index,
+    };
+    (row_index as i32, err.to_string())
+}
+
 /// Builds the `EventSlug -> Evenement id` routing table for one sheet,
 /// checking config problems before any network call: a missing, unknown,
 /// or duplicated `bloc_formulaire` is a config error to report, not

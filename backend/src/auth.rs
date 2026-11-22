@@ -176,11 +176,11 @@ pub async fn verify_code(
     StatusCode::OK
 }
 
-/// Stub protected route: 200 with a valid, unexpired session cookie, 401
-/// otherwise. Stands in for the real admin screens (specs §7.3).
-pub async fn require_session(State(state): State<AppState>, cookies: Cookies) -> StatusCode {
+/// Shared by every protected route (specs §7.3 admin screens, §6.1
+/// "Générer le planning", the manual sync trigger, ...).
+pub async fn session_valid(state: &AppState, cookies: &Cookies) -> bool {
     let Some(cookie) = cookies.get(SESSION_COOKIE) else {
-        return StatusCode::UNAUTHORIZED;
+        return false;
     };
 
     let session = sqlx::query!(
@@ -191,8 +191,15 @@ pub async fn require_session(State(state): State<AppState>, cookies: Cookies) ->
     .await
     .expect("db query failed");
 
-    match session {
-        Some(session) if session.expires_at > Utc::now() => StatusCode::OK,
-        _ => StatusCode::UNAUTHORIZED,
+    matches!(session, Some(session) if session.expires_at > Utc::now())
+}
+
+/// Stub protected route: 200 with a valid, unexpired session cookie, 401
+/// otherwise. Stands in for the real admin screens (specs §7.3).
+pub async fn require_session(State(state): State<AppState>, cookies: Cookies) -> StatusCode {
+    if session_valid(&state, &cookies).await {
+        StatusCode::OK
+    } else {
+        StatusCode::UNAUTHORIZED
     }
 }
