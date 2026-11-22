@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod config;
+pub mod google_auth;
 pub mod health;
 pub mod sheets;
 pub mod sync;

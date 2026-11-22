@@ -12,7 +12,7 @@ Ce document couvre la technique (stack, hébergement, déploiement). Le fonction
 
 ## 2. Stack technique
 
-- **Backend** : Rust, framework **Axum**, accès base via **sqlx** (driver Postgres).
+- **Backend** : Rust, framework **Axum**, accès base via **sqlx** (driver Postgres). Client HTTP sortant (`reqwest`, appels Google Sheets/OAuth2) en **rustls** plutôt que native-tls/OpenSSL — cohérent avec `lettre` (SMTP) déjà en rustls, et évite d'avoir à installer `libssl` dans l'image finale (§3), qui n'a que `ca-certificates`.
 - **Frontend** : **SvelteKit**, buildé en SPA statique.
 - **Base de données** : Postgres (instance partagée, cf. 1).
 - **Migrations** : gérées côté Rust (`sqlx migrate` ou `refinery`), exécutées au démarrage du container applicatif — jamais manuellement sur le NAS.

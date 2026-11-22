@@ -22,7 +22,7 @@ async fn sheets_client_parses_a_fixture_row_from_the_mock_api() {
     let mock_server = MockServer::start().await;
 
     Mock::given(method("GET"))
-        .and(path("/v4/spreadsheets/fake-sheet-id/values/Reponses!A2:Z"))
+        .and(path("/v4/spreadsheets/fake-sheet-id/values/Reponses!A1:ZZ"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "values": [
                 ["Jean", "Dupont", "jean.dupont@example.com", "oui"]
@@ -31,10 +31,10 @@ async fn sheets_client_parses_a_fixture_row_from_the_mock_api() {
         .mount(&mock_server)
         .await;
 
-    let client = SheetsClient::new(mock_server.uri(), "fake-token");
+    let client = SheetsClient::new(mock_server.uri());
 
     let rows = client
-        .fetch_values("fake-sheet-id", "Reponses!A2:Z")
+        .fetch_values("fake-token", "fake-sheet-id", "Reponses")
         .await
         .expect("fetch against the mock should succeed");
 
@@ -60,18 +60,19 @@ async fn sheets_client_parses_the_real_form_structure_fixture() {
 
     Mock::given(method("GET"))
         .and(path(
-            "/v4/spreadsheets/1VanRtLnS2lF5XpUtUpjyv9MX2lQh7EPcAZCIPsm3jsc/values/Reponses!A1:AB4",
+            "/v4/spreadsheets/1VanRtLnS2lF5XpUtUpjyv9MX2lQh7EPcAZCIPsm3jsc/values/Reponses!A1:ZZ",
         ))
         .respond_with(ResponseTemplate::new(200).set_body_raw(fixture, "application/json"))
         .mount(&mock_server)
         .await;
 
-    let client = SheetsClient::new(mock_server.uri(), "fake-token");
+    let client = SheetsClient::new(mock_server.uri());
 
     let rows = client
         .fetch_values(
+            "fake-token",
             "1VanRtLnS2lF5XpUtUpjyv9MX2lQh7EPcAZCIPsm3jsc",
-            "Reponses!A1:AB4",
+            "Reponses",
         )
         .await
         .expect("fetch against the real-shaped fixture should succeed");

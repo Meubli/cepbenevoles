@@ -7,6 +7,7 @@
 //! those are separate concerns, built on top of this.
 
 pub mod form_2027;
+pub mod orchestrate;
 pub mod persist;
 
 use chrono::{DateTime, NaiveDate, Utc};

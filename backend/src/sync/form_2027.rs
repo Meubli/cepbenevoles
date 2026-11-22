@@ -37,6 +37,21 @@ const COL_POSTE_10_12: &str = "Poste(s) souhaité(s) (pour les 10 - 12 ans)";
 const COL_POSTE_13_14: &str = "Poste(s) souhaité(s) (pour les 13 - 14 ans)";
 const COL_POSTE_15_PLUS: &str = "Poste(s) souhaité(s) (pour les + de 15 ans)";
 
+/// The one tab this form's responses Sheet has (cf. specs.md §3.3).
+pub const TAB_NAME: &str = "Réponses au formulaire 1";
+
+/// Maps an `Evenement.bloc_formulaire` value (admin-configured, Événements
+/// screen) to the [`EventSlug`] this parser knows how to read from a row.
+/// Unknown values are a config error at the orchestration level, not a
+/// parser one — the admin picked a value this code doesn't recognize.
+pub fn bloc_to_slug(bloc: &str) -> Option<EventSlug> {
+    match bloc {
+        "form_2027_indiv" => Some(EventSlug::IndivGamGaf),
+        "form_2027_teamgym" => Some(EventSlug::TeamGym),
+        _ => None,
+    }
+}
+
 /// One form day column: its header text, the day-name prefix to strip from
 /// each checkbox token (e.g. "Jeudi matin" -> "matin"), and the real
 /// calendar date it corresponds to.
@@ -118,6 +133,42 @@ fn normalize_header(s: &str) -> String {
 fn header_index(header: &[String], name: &str) -> Option<usize> {
     let target = normalize_header(name);
     header.iter().position(|h| normalize_header(h) == target)
+}
+
+/// Every column this parser reads, by name. Checked once per Sheet before
+/// parsing any row — a renamed question (it has happened: Déroulement ->
+/// Plateau) would otherwise make every row "parse successfully" with that
+/// column silently treated as absent (empty availabilities, no attendance),
+/// reporting 0 inserted with no error anywhere.
+pub fn validate_header(header: &[String]) -> Result<(), Vec<&'static str>> {
+    let mut required: Vec<&'static str> = vec![
+        COL_HORODATEUR,
+        COL_NOM,
+        COL_PRENOM,
+        COL_TRANCHE_AGE,
+        COL_MAIL,
+        COL_TELEPHONE,
+        COL_PERMIS_B,
+        COL_TAILLE_TSHIRT,
+        COL_SEREZ_INDIV,
+        COL_SEREZ_TEAMGYM,
+        COL_POSTE_10_12,
+        COL_POSTE_13_14,
+        COL_POSTE_15_PLUS,
+    ];
+    required.extend(indiv_days().iter().map(|d| d.header));
+    required.extend(teamgym_days().iter().map(|d| d.header));
+
+    let missing: Vec<&'static str> = required
+        .into_iter()
+        .filter(|col| header_index(header, col).is_none())
+        .collect();
+
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(missing)
+    }
 }
 
 fn cell(row: &[String], idx: usize) -> &str {
@@ -320,6 +371,34 @@ pub fn parse_row(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn validate_header_accepts_the_real_fixture_header() {
+        let (header, _) = fixture();
+        assert_eq!(validate_header(&header), Ok(()));
+    }
+
+    #[test]
+    fn validate_header_reports_a_renamed_column() {
+        let (mut header, _) = fixture();
+        // Simulate the association renaming a question, as already
+        // happened once (Déroulement -> Plateau, cf. specs.md §3.1).
+        let idx = header_index(&header, COL_SEREZ_INDIV).unwrap();
+        header[idx] = "Un intitulé renommé".to_string();
+
+        let missing = validate_header(&header).unwrap_err();
+        assert_eq!(missing, vec![COL_SEREZ_INDIV]);
+    }
+
+    #[test]
+    fn bloc_to_slug_maps_known_values_and_rejects_unknown() {
+        assert_eq!(
+            bloc_to_slug("form_2027_indiv"),
+            Some(EventSlug::IndivGamGaf)
+        );
+        assert_eq!(bloc_to_slug("form_2027_teamgym"), Some(EventSlug::TeamGym));
+        assert_eq!(bloc_to_slug("form_2028_indiv"), None);
+    }
 
     fn fixture() -> (Vec<String>, Vec<Vec<String>>) {
         let raw: serde_json::Value = serde_json::from_str(include_str!(
