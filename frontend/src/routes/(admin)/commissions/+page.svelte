@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, ApiError } from '#lib/api';
+	import { onLive } from '#lib/live';
 
 	type Poste = { id: string; nom: string; prerequis_libre_texte: string | null };
 	type Commission = {
@@ -65,19 +66,31 @@
 	let managingPostesId = $state<string | null>(null);
 	let newPosteNom = $state('');
 
-	async function load() {
-		loading = true;
-		error = null;
+	// Refetches without touching `loading`/`editingId`/`creating` — used
+	// both for the first load and for a live-refresh tick (technical-specs.md
+	// §10): a background refetch must never unmount an in-progress form. Also
+	// never clears `error` on success — a live tick from another admin's
+	// change must not wipe out an unrelated validation message this page's
+	// own form just set (e.g. two e2e workers hitting the same backend).
+	async function refresh() {
 		try {
 			commissions = await api.get<Commission[]>('/commissions');
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
-		} finally {
-			loading = false;
 		}
 	}
 
-	onMount(load);
+	async function load() {
+		loading = true;
+		error = null;
+		await refresh();
+		loading = false;
+	}
+
+	onMount(() => {
+		void load();
+		return onLive(['commissions'], () => void refresh());
+	});
 
 	function visibleCommissions(): Commission[] {
 		const query = search.trim().toLowerCase();

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, ApiError } from '#lib/api';
+	import { onLive } from '#lib/live';
 
 	type MappingRow = {
 		libelle: string;
@@ -32,9 +33,10 @@
 	let selectedCommissionId = $state('');
 	let selectedPosteId = $state('');
 
-	async function load() {
-		loading = true;
-		error = null;
+	// See commissions/+page.svelte's refresh() for why this is split from
+	// load(): a live-refresh tick must not toggle `loading` (which would
+	// unmount the Associer/Modifier form an admin has open).
+	async function refresh() {
 		try {
 			[rows, commissions] = await Promise.all([
 				api.get<MappingRow[]>('/mapping'),
@@ -42,12 +44,23 @@
 			]);
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
-		} finally {
-			loading = false;
 		}
 	}
 
-	onMount(load);
+	async function load() {
+		loading = true;
+		error = null;
+		await refresh();
+		loading = false;
+	}
+
+	onMount(() => {
+		void load();
+		// "commissions": a commission/poste renamed or added changes the
+		// picker and the "→ Commission · Poste" label already mapped rows
+		// show. "sync": a new sync can surface a brand new unmapped label.
+		return onLive(['mapping', 'commissions', 'sync'], () => void refresh());
+	});
 
 	function unmappedCount(): number {
 		return rows.filter((r) => !r.kind).length;

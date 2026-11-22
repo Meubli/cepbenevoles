@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, ApiError } from '#lib/api';
+	import { onLive } from '#lib/live';
 
 	type Admin = {
 		id: string;
@@ -25,9 +26,9 @@
 	let creating = $state(false);
 	let createForm = $state<FormState>(emptyForm());
 
-	async function load() {
-		loading = true;
-		error = null;
+	// See (admin)/commissions/+page.svelte's refresh() for why this is split
+	// from load(): a live-refresh tick must not toggle `loading`.
+	async function refresh() {
 		try {
 			const [adminsResult, session] = await Promise.all([
 				api.get<Admin[]>('/admins'),
@@ -37,12 +38,20 @@
 			selfEmail = session.email;
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
-		} finally {
-			loading = false;
 		}
 	}
 
-	onMount(load);
+	async function load() {
+		loading = true;
+		error = null;
+		await refresh();
+		loading = false;
+	}
+
+	onMount(() => {
+		void load();
+		return onLive(['admins'], () => void refresh());
+	});
 
 	function displayName(a: Admin): string {
 		return a.nom && a.prenom ? `${a.nom} ${a.prenom}` : a.email;

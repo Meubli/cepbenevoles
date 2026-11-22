@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { api, ApiError } from '#lib/api';
+	import { onLive } from '#lib/live';
 
 	type SheetStatus = {
 		sheet_id: string;
@@ -26,9 +27,11 @@
 
 	const mappingHref = resolve('/(admin)/mapping');
 
-	async function load() {
-		loading = true;
-		error = null;
+	// See commissions/+page.svelte's refresh() for why this is split from
+	// load(): a live-refresh tick (e.g. the scheduler syncing in the
+	// background, or another admin editing Mapping/Événements) must not
+	// toggle `loading`.
+	async function refresh() {
 		try {
 			const [statuses, mappingRows] = await Promise.all([
 				api.get<SheetStatus[]>('/sync/status'),
@@ -38,12 +41,22 @@
 			unmappedCount = mappingRows.filter((r) => !r.kind).length;
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
-		} finally {
-			loading = false;
 		}
 	}
 
-	onMount(load);
+	async function load() {
+		loading = true;
+		error = null;
+		await refresh();
+		loading = false;
+	}
+
+	onMount(() => {
+		void load();
+		// "evenements": a new sheet_id configured changes which sheets show
+		// up here.
+		return onLive(['sync', 'mapping', 'evenements'], () => void refresh());
+	});
 
 	function formatDateTime(value: string | null): string {
 		if (!value) return 'jamais';

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, ApiError } from '#lib/api';
+	import { onLive } from '#lib/live';
 
 	type Evenement = {
 		id: string;
@@ -39,9 +40,10 @@
 	let creating = $state(false);
 	let createForm = $state<FormState>(emptyForm());
 
-	async function load() {
-		loading = true;
-		error = null;
+	// See (admin)/commissions/+page.svelte's refresh() for why this is split
+	// from load(): a live-refresh tick must not toggle `loading` (which
+	// would unmount the Modifier/Nouvel événement form an admin has open).
+	async function refresh() {
 		try {
 			[events, blocs] = await Promise.all([
 				api.get<Evenement[]>('/evenements'),
@@ -49,12 +51,20 @@
 			]);
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
-		} finally {
-			loading = false;
 		}
 	}
 
-	onMount(load);
+	async function load() {
+		loading = true;
+		error = null;
+		await refresh();
+		loading = false;
+	}
+
+	onMount(() => {
+		void load();
+		return onLive(['evenements'], () => void refresh());
+	});
 
 	// sheet_id values already used by non-archived events, with the names
 	// of the events using each one — lets an admin reuse the right Sheet

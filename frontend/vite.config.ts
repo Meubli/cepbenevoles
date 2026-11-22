@@ -17,7 +17,10 @@ export default defineConfig({
 		// Local dev only — in prod the same Axum binary serves both (cf.
 		// docs/technical-specs.md §3), no proxy involved.
 		proxy: {
-			'/api': 'http://127.0.0.1:3000'
+			// `ws: true` is required explicitly — the string shorthand form
+			// doesn't proxy websocket upgrades, only plain HTTP (needed for
+			// /api/ws, the live-refresh socket, technical-specs.md §10).
+			'/api': { target: 'http://127.0.0.1:3000', ws: true }
 		}
 	}
 });
