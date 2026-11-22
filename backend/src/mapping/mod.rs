@@ -32,42 +32,38 @@ impl MappingKind {
 /// Idempotent and safe to call repeatedly: after every mapping save, and
 /// after every sync (so a submission inserted mid-mapping-edit still gets
 /// resolved on the next sweep instead of staying stuck).
-pub async fn resolve_pending_libelles(pool: &PgPool) -> Result<u64, sqlx::Error> {
-    let mut tx = pool.begin().await?;
-
-    let _polyvalent_count = sqlx::query(
-        "UPDATE soumission SET polyvalent = true \
-         WHERE id IN ( \
-             SELECT sl.soumission_id FROM soumission_libelle sl \
-             JOIN mapping_souhait_form m ON m.libelle = sl.libelle_brut \
-             WHERE sl.resolved_at IS NULL AND m.kind = 'polyvalent' \
-         )",
+pub async fn resolve_pending_libelles(pool: &PgPool) -> Result<i64, sqlx::Error> {
+    // A single statement, not three sequential ones: under READ COMMITTED,
+    // separate statements each take their own snapshot, so a sync or
+    // another mapping save landing a new soumission_libelle row between
+    // them could get marked "resolved" by the last statement without ever
+    // having had its souhait_commission row created — a silently lost wish.
+    // Every CTE here runs against the same snapshot and, because `ins` and
+    // `poly` read from `pending`'s RETURNING rather than re-querying the
+    // tables, a concurrent sweep can only see rows this one hasn't claimed
+    // yet (row locks from the first UPDATE make the second sweep wait, then
+    // its own `resolved_at IS NULL` check finds nothing left to do).
+    let resolved_count: i64 = sqlx::query_scalar(
+        "WITH pending AS ( \
+             UPDATE soumission_libelle sl SET resolved_at = now() \
+             FROM mapping_souhait_form m \
+             WHERE sl.resolved_at IS NULL AND m.libelle = sl.libelle_brut \
+             RETURNING sl.soumission_id, m.kind, m.commission_id, m.poste_id \
+         ), ins AS ( \
+             INSERT INTO souhait_commission (soumission_id, commission_id, poste_id) \
+             SELECT soumission_id, commission_id, poste_id FROM pending WHERE kind = 'commission' \
+             ON CONFLICT DO NOTHING \
+             RETURNING 1 \
+         ), poly AS ( \
+             UPDATE soumission SET polyvalent = true \
+             WHERE id IN (SELECT soumission_id FROM pending WHERE kind = 'polyvalent') \
+             RETURNING 1 \
+         ) \
+         SELECT COUNT(*) FROM pending",
     )
-    .execute(&mut *tx)
-    .await?
-    .rows_affected();
+    .fetch_one(pool)
+    .await?;
 
-    let _commission_count = sqlx::query(
-        "INSERT INTO souhait_commission (soumission_id, commission_id, poste_id) \
-         SELECT sl.soumission_id, m.commission_id, m.poste_id \
-         FROM soumission_libelle sl \
-         JOIN mapping_souhait_form m ON m.libelle = sl.libelle_brut \
-         WHERE sl.resolved_at IS NULL AND m.kind = 'commission' \
-         ON CONFLICT DO NOTHING",
-    )
-    .execute(&mut *tx)
-    .await?
-    .rows_affected();
-
-    let resolved_count = sqlx::query(
-        "UPDATE soumission_libelle SET resolved_at = now() \
-         WHERE resolved_at IS NULL AND libelle_brut IN (SELECT libelle FROM mapping_souhait_form)",
-    )
-    .execute(&mut *tx)
-    .await?
-    .rows_affected();
-
-    tx.commit().await?;
     Ok(resolved_count)
 }
 

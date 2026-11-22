@@ -135,7 +135,9 @@ INSERT INTO mapping_souhait_form (libelle, kind, commission_id)
 INSERT INTO mapping_souhait_form (libelle, kind, commission_id)
     SELECT 'Contrôle des accès', 'commission', id FROM commission WHERE nom = 'Contrôle des accès';
 INSERT INTO mapping_souhait_form (libelle, kind, commission_id)
-    SELECT 'Hébergement ISAAC de l''ÉTOILE (nuit possible sur place)', 'commission', id
+    -- Real form text has no accent on "ETOILE" and uses uppercase — verified
+    -- against the live form (section 6), do not "correct" it.
+    SELECT 'Hébergement ISAAC de l''ETOILE (nuit possible sur place)', 'commission', id
     FROM commission WHERE nom = 'Hébergement ISAAC de l''ÉTOILE';
 INSERT INTO mapping_souhait_form (libelle, kind, commission_id)
     SELECT 'Plateau (connaissance du déroulement d''une compétition nécessaire)', 'commission', id

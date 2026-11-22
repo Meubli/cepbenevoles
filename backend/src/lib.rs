@@ -59,6 +59,10 @@ fn api_router() -> Router<AppState> {
             get(mapping::endpoint::list_mapping).post(mapping::endpoint::post_mapping),
         )
         .route("/commissions", get(mapping::endpoint::list_commissions))
+        // Without this, an unmatched /api/* path falls through to the SPA
+        // fallback below and gets served index.html as if it were a page —
+        // api.ts would then try to JSON-parse an HTML body.
+        .fallback(|| async { axum::http::StatusCode::NOT_FOUND })
 }
 
 /// `static_dir` is the built SvelteKit SPA (technical-specs.md §3); absent
@@ -74,7 +78,11 @@ pub fn app(state: AppState, static_dir: Option<&str>) -> Router {
 
     if let Some(dir) = static_dir {
         let index = format!("{dir}/index.html");
-        let serve_dir = ServeDir::new(dir).not_found_service(ServeFile::new(index));
+        // `.fallback()`, not `.not_found_service()` — the latter forces the
+        // response status to 404 regardless of what the fallback service
+        // itself returns (tower_http::services::fs::serve_dir::SetStatus),
+        // which would make every SPA deep link an "index.html with a 404".
+        let serve_dir = ServeDir::new(dir).fallback(ServeFile::new(index));
         router = router.fallback_service(serve_dir);
     }
 

@@ -50,14 +50,17 @@
 		return commissions.find((c) => c.id === selectedCommissionId);
 	}
 
+	const POLYVALENT_VALUE = '__polyvalent__';
+
 	async function saveMapping(libelle: string) {
 		error = null;
 		try {
+			const isPolyvalent = selectedCommissionId === POLYVALENT_VALUE;
 			await api.post('/mapping', {
 				libelle,
-				kind: 'commission',
-				commission_id: selectedCommissionId || null,
-				poste_id: selectedPosteId || null
+				kind: isPolyvalent ? 'polyvalent' : 'commission',
+				commission_id: isPolyvalent ? null : selectedCommissionId || null,
+				poste_id: isPolyvalent ? null : selectedPosteId || null
 			});
 			editing = null;
 			await load();
@@ -107,6 +110,7 @@
 						{#if editing === row.libelle}
 							<select bind:value={selectedCommissionId}>
 								<option value="">— commission —</option>
+								<option value={POLYVALENT_VALUE}>Bénévole polyvalent</option>
 								{#each commissions as c (c.id)}
 									<option value={c.id}>{c.nom}</option>
 								{/each}
