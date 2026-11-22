@@ -681,6 +681,28 @@ table.plan th:first-child{background:var(--accent-weak); z-index:2}
         <div class="search-wf wf" style="flex:1">🔍 Rechercher une commission…</div>
         <button class="btn-wf primary">+ Nouvelle commission</button>
       </div>
+
+      <div class="panel wf" style="margin-bottom:18px">
+        <div class="screen-head" style="margin-bottom:0"><h3>Nouvelle commission</h3></div>
+        <div class="field-grid" style="margin-top:12px">
+          <div class="field wf"><span class="wf-label">Nom</span><span class="input-wf wf"></span></div>
+          <div class="field wf"><span class="wf-label">Prérequis (texte libre)</span><span class="input-wf wf"></span></div>
+          <div class="field wf"><span class="wf-label">Grille de créneaux</span>
+            <div class="btn-group"><button class="btn-wf primary">Générale</button><button class="btn-wf">Propre</button></div>
+          </div>
+          <div class="field wf"><span class="wf-label">A des postes</span>
+            <div class="btn-group"><button class="btn-wf primary">Non</button><button class="btn-wf">Oui</button></div>
+          </div>
+          <div class="field wf"><span class="wf-label">Besoin chiffré <span class="optional-tag">— défaut : oui</span></span>
+            <div class="btn-group"><button class="btn-wf primary">Oui</button><button class="btn-wf">Non</button></div>
+          </div>
+          <div class="field wf"><span class="wf-label">Couleur <span class="optional-tag">— tirée au hasard, modifiable dès maintenant</span></span>
+            <div class="toolbar-row" style="margin:4px 0 0"><span class="color-swatch" style="background:#5ec9a0; width:22px; height:22px"></span><button class="btn-wf">Changer</button></div>
+          </div>
+        </div>
+        <button class="btn-wf primary" style="margin-top:14px">Créer la commission</button>
+      </div>
+
       <div>
         <div class="comm-row">
           <div class="comm-main">
@@ -745,27 +767,6 @@ table.plan th:first-child{background:var(--accent-weak); z-index:2}
           </div>
         </div>
         <button class="btn-wf primary" style="margin-top:14px">Enregistrer</button>
-      </div>
-
-      <div class="panel wf" style="margin-top:18px">
-        <div class="screen-head" style="margin-bottom:0"><h3>Nouvelle commission</h3></div>
-        <div class="field-grid" style="margin-top:12px">
-          <div class="field wf"><span class="wf-label">Nom</span><span class="input-wf wf"></span></div>
-          <div class="field wf"><span class="wf-label">Prérequis (texte libre)</span><span class="input-wf wf"></span></div>
-          <div class="field wf"><span class="wf-label">Grille de créneaux</span>
-            <div class="btn-group"><button class="btn-wf primary">Générale</button><button class="btn-wf">Propre</button></div>
-          </div>
-          <div class="field wf"><span class="wf-label">A des postes</span>
-            <div class="btn-group"><button class="btn-wf primary">Non</button><button class="btn-wf">Oui</button></div>
-          </div>
-          <div class="field wf"><span class="wf-label">Besoin chiffré <span class="optional-tag">— défaut : oui</span></span>
-            <div class="btn-group"><button class="btn-wf primary">Oui</button><button class="btn-wf">Non</button></div>
-          </div>
-          <div class="field wf"><span class="wf-label">Couleur <span class="optional-tag">— tirée au hasard, modifiable dès maintenant</span></span>
-            <div class="toolbar-row" style="margin:4px 0 0"><span class="color-swatch" style="background:#5ec9a0; width:22px; height:22px"></span><button class="btn-wf">Changer</button></div>
-          </div>
-        </div>
-        <button class="btn-wf primary" style="margin-top:14px">Créer la commission</button>
       </div>
 
       <div class="panel wf" style="margin-top:18px">
