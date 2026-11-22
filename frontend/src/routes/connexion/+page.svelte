@@ -193,6 +193,12 @@
 		font-family: var(--font-body);
 		font-size: 14px;
 		line-height: 1.5;
+		box-sizing: border-box;
+	}
+	:global(body *),
+	:global(body *::before),
+	:global(body *::after) {
+		box-sizing: inherit;
 	}
 	.connexion-main {
 		max-width: 1100px;

@@ -28,6 +28,12 @@
 	}
 }
 
+.admin-shell,
+.admin-shell *,
+.admin-shell *::before,
+.admin-shell *::after {
+	box-sizing: border-box;
+}
 .admin-shell {
 	background: var(--bg);
 	color: var(--ink);
@@ -37,7 +43,7 @@
 	min-height: 100vh;
 }
 .admin-main {
-	max-width: 1100px;
+	max-width: 1600px;
 	margin: 0 auto;
 	padding: 24px 16px 60px;
 }
@@ -51,7 +57,7 @@
 	align-items: center;
 	gap: 18px;
 	flex-wrap: wrap;
-	max-width: 1100px;
+	max-width: 1600px;
 	margin: 0 auto;
 }
 .brand {

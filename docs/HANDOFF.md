@@ -213,10 +213,32 @@ duplique pas, il dit où on en est par rapport à elles.
     e2e (`e2e/tests/admins.spec.ts` — cycle complet créer/promouvoir/retirer
     + un admin non-superadmin reçoit 403 sur `/api/admins`). Vérifié dans
     le navigateur (ajout + promotion + retrait réels).
+- **Deux bugs CSS corrigés sur `/evenements`** (trouvés dans le navigateur
+  après coup, par l'utilisateur) :
+  - Formulaire d'édition inline cassé par la mise en page : il vivait dans
+    le `.comm-row` flex de la ligne (`justify-content: space-between`), qui
+    comprimait le `field-grid` contre les boutons Enregistrer/Annuler au
+    lieu de lui laisser toute la largeur. Déplacé en bloc pleine largeur
+    sous la ligne (même pattern que "Nouvel événement"), comme le fait
+    réellement la maquette s11 (le bloc "Modifier — …" y est déjà séparé
+    de la liste, pas incrusté dans une ligne).
+  - **`admin.css` n'avait jamais posé `box-sizing: border-box`** (présent
+    dans la maquette via un `*{box-sizing:border-box}` global, jamais
+    repris) : `.input-wf{width:100%}` + son `padding`/`border` s'ajoutaient
+    par-dessus ce 100 %, débordant visuellement de la carte `.field wf` —
+    affectait **tous** les champs du shell admin (Événements, Mapping,
+    Admins), pas seulement Événements. Corrigé en posant
+    `box-sizing: border-box` sur `.admin-shell` et tous ses descendants ;
+    même filet de sécurité ajouté à `/connexion` par précaution (son
+    `.input-wf` n'a pas `width:100%` donc n'était pas cassé, mais même
+    classe de bug possible).
+  - `admin-main`/`topbar-inner` élargis à 1600px (l'utilisateur les
+    trouvait trop étroits sur grand écran) — avant : 1100px, repris tel
+    quel de la maquette sans l'adapter aux vrais écrans utilisés.
 
-Compteurs : ~83 tests Rust (unitaires + intégration, +8 pour
-`admins_endpoint.rs`), 11 tests Playwright e2e (+2 pour les admins), tous
-verts au dernier run.
+Compteurs : ~83 tests Rust (unitaires + intégration), 11 tests Playwright
+e2e, tous verts au dernier run (pas de nouveau test pour ce lot — pur CSS,
+déjà couvert fonctionnellement par les tests existants).
 
 ## Pas fait / connu cassé ou absent
 

@@ -156,8 +156,37 @@
 {:else}
 	{#each events as e (e.id)}
 		<div class="comm-row" data-testid="evenement-row" data-nom={e.nom}>
-			{#if editingId === e.id}
-				<div class="field-grid" style="flex:1">
+			<div class="comm-main">
+				<span style="font-weight:600">{e.nom}</span>
+				<span class="wf-label">{e.date_debut} – {e.date_fin}{e.lieu ? ` · ${e.lieu}` : ''}</span>
+				<span class="wf-label">
+					{#if e.sheet_id}
+						Sheet source : {e.sheet_id}
+					{:else}
+						<span style="color:var(--accent)">
+							Aucune sheet source — saisie manuelle uniquement
+						</span>
+					{/if}
+				</span>
+			</div>
+			<div class="comm-meta">
+				<span class="pill" class:archived={e.archive}>{e.archive ? 'archivé' : 'actif'}</span>
+				<button class="btn-wf" onclick={() => startEditing(e)}>Modifier</button>
+				<button
+					class="btn-wf"
+					class:danger={!e.archive}
+					class:primary={e.archive}
+					onclick={() => toggleArchive(e)}
+				>
+					{e.archive ? 'Désarchiver' : 'Archiver'}
+				</button>
+			</div>
+		</div>
+
+		{#if editingId === e.id}
+			<div style="margin-top:12px; padding-top:16px; border-top:1px solid var(--line)">
+				<h3>Modifier — {e.nom}</h3>
+				<div class="field-grid">
 					<div class="field wf">
 						<label>
 							Nom
@@ -200,38 +229,14 @@
 						{/if}
 					</div>
 				</div>
-				<div class="comm-meta">
-					<button class="btn-wf primary" onclick={() => saveEdit(e.id)}>Enregistrer</button>
-					<button class="btn-wf" onclick={() => (editingId = null)}>Annuler</button>
-				</div>
-			{:else}
-				<div class="comm-main">
-					<span style="font-weight:600">{e.nom}</span>
-					<span class="wf-label">{e.date_debut} – {e.date_fin}{e.lieu ? ` · ${e.lieu}` : ''}</span>
-					<span class="wf-label">
-						{#if e.sheet_id}
-							Sheet source : {e.sheet_id}
-						{:else}
-							<span style="color:var(--accent)">
-								Aucune sheet source — saisie manuelle uniquement
-							</span>
-						{/if}
-					</span>
-				</div>
-				<div class="comm-meta">
-					<span class="pill" class:archived={e.archive}>{e.archive ? 'archivé' : 'actif'}</span>
-					<button class="btn-wf" onclick={() => startEditing(e)}>Modifier</button>
-					<button
-						class="btn-wf"
-						class:danger={!e.archive}
-						class:primary={e.archive}
-						onclick={() => toggleArchive(e)}
-					>
-						{e.archive ? 'Désarchiver' : 'Archiver'}
-					</button>
-				</div>
-			{/if}
-		</div>
+				<button class="btn-wf primary" style="margin-top:12px" onclick={() => saveEdit(e.id)}>
+					Enregistrer
+				</button>
+				<button class="btn-wf" style="margin-top:12px" onclick={() => (editingId = null)}>
+					Annuler
+				</button>
+			</div>
+		{/if}
 	{/each}
 
 	<datalist id="sheet-id-suggestions">
