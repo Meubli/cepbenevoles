@@ -1,6 +1,6 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-22. Dernier commit : `70c7369`.
+Dernière mise à jour : 2026-11-23. Dernier commit : `b4286b4`.
 
 ## État général
 
@@ -357,6 +357,77 @@ déjà couvert fonctionnellement par les tests existants).
     (création d'une commission avec couleur aléatoire, ajout puis
     suppression d'un poste). e2e existants (mapping, 11/11) toujours
     verts après le déplacement de `GET /commissions`.
+  - **Formulaire "Nouvelle commission" déplacé au-dessus de la liste** (au
+    lieu d'après, où il fallait scroller toute la liste pour le voir —
+    signalé par l'utilisateur) : même correction répercutée dans
+    `mockups/wireframes.html` (écran s5) et dans l'artifact Claude.ai qui
+    en est une copie publiée (republié après édition directe du fichier
+    source sauvegardé de l'artifact).
+
+- **Websocket de rafraîchissement live, généralisé à tous les écrans
+  admin** (technical-specs.md §10, demandé explicitement par l'utilisateur
+  — la spec d'origine ne couvrait que l'écran Planning, pas encore
+  construit) :
+  - **Nouveau module `backend/src/live.rs`** : `AppState` gagne un champ
+    `live: tokio::sync::broadcast::Sender<String>`. Un middleware
+    (`emit_live_event`), posé sur `api_router()` dans `app()` (pas besoin
+    d'y toucher route par route), diffuse le premier segment du chemin
+    (`commissions`, `mapping`, `evenements`, `sync`, `admins`) après
+    **toute requête non-GET réussie (2xx)** — `/auth/*` exclu. `GET
+    /api/ws` (nouvelle route) upgrade une connexion **authentifiée**
+    (`AuthAdmin`, comme toute autre route) et stream les tags reçus ;
+    ping toutes les 30s pour détecter une socket morte / éviter qu'un
+    reverse proxy la coupe pour inactivité. Flux **push-only, sans
+    donnée** : jamais l'objet modifié lui-même, juste son tag de
+    ressource — le client refait l'appel REST habituel. Le **scheduler de
+    sync** (`main.rs::spawn_scheduler`, qui écrit en base hors requête
+    HTTP donc hors middleware) émet aussi `"sync"` lui-même après chaque
+    exécution.
+  - `AppState` gagnant un champ obligatoire, les 6 `base_state()` des
+    fichiers de test ont dû être mis à jour (mécanique, aucun changement
+    de comportement testé).
+  - **Client** `frontend/src/lib/live.ts` : un seul websocket partagé par
+    onglet (ouvert à la première page qui s'y abonne via `onLive(tags,
+    cb)`), reconnexion avec backoff exponentiel (max 15s), full-resync
+    (`"*"`) après une reconnexion (les événements manqués pendant la
+    coupure ne sont pas rejoués). Chaque écran (`(admin)/commissions`,
+    `mapping`, `synchro`, `evenements`, `admins`) s'abonne aux tags qui le
+    concernent (ex. Mapping écoute aussi `commissions`/`sync` : un
+    renommage de commission ou une nouvelle synchro changent ce qu'il
+    affiche) et rappelle son `refresh()`.
+  - **Refonte nécessaire de chaque écran** : la fonction de chargement
+    existante (`load()`) a dû être scindée en `load()` (premier affichage
+    — bascule `loading`, remet `error` à zéro) et `refresh()` (rappelée
+    par un tick live **et** par `load()`) qui ne touche **ni** `loading`
+    (démonterait un formulaire Modifier/Nouveau en cours de saisie), **ni**
+    `error` sur un succès (effacerait un message de validation qu'une
+    action locale venait de poser). Cette deuxième règle n'était pas
+    évidente a priori : trouvée via un **vrai flake e2e** (6 workers
+    Playwright tapant le même backend en parallèle — le tick live déclenché
+    par la mutation d'un autre test effaçait le message d'erreur du test en
+    cours).
+  - `vite.config.ts` : le proxy `/api` passe de la forme raccourcie
+    (string) à `{ target, ws: true }` — la forme raccourcie ne proxie que
+    le HTTP classique, pas l'upgrade websocket ; sans ça `/api/ws`
+    échouait silencieusement en dev (`:5173`) tout en fonctionnant en
+    prod/e2e (le même binaire Axum sert tout, pas de proxy).
+  - Testé : 4 tests Rust (`backend/tests/live_endpoint.rs` — `/ws` exige
+    une session, une écriture réussie diffuse son tag, une écriture 422
+    n'émet rien, un GET n'émet rien) + nouveau e2e
+    (`e2e/tests/live.spec.ts`, utilisant `openTwoAdminContexts`,
+    déjà présent dans `e2e/tests/helpers/multi-admin.ts` avec un
+    commentaire anticipant exactement ce scénario) : deux contextes
+    authentifiés distincts, l'un crée une commission, l'autre (jamais
+    rechargé) la voit apparaître via le seul websocket. Suite e2e complète
+    (12/12) rejouée 3 fois de suite pour écarter un flake. Vérifié aussi à
+    la main dans deux onglets Chrome via le vrai proxy Vite dev (`:5173`,
+    pas seulement le binaire de prod/e2e).
+  - **Connu non géré** : édition concurrente du même élément = dernier
+    enregistrement gagne (pas de fusion) ; une socket ouverte n'est pas
+    fermée à la déconnexion/suppression de l'admin (risque faible, elle ne
+    porte aucune donnée) ; configuration du reverse proxy pour transmettre
+    l'en-tête `Upgrade` en prod — jamais vérifiée ici, à faire avant un
+    vrai déploiement derrière un reverse proxy.
 
 ## Pas fait / connu cassé ou absent
 
@@ -410,8 +481,11 @@ scope ici.
 8. ~~Écran "Commissions" (périmètre réduit, cf. "Fait")~~ — fait (voir
    plus bas). Réordonnancement des postes et toggle actif/inactif
    restent à construire, pas décidé quand.
-9. Rate limiting (DB, décider header IP) — seul point ouvert restant de
-   cette liste.
+9. ~~Websocket de rafraîchissement live, tous écrans admin~~ — fait (voir
+   plus bas). Scoping Planning (par événement/jour) différé jusqu'à la
+   construction de cet écran.
+10. Rate limiting (DB, décider header IP) — seul point ouvert restant de
+    cette liste.
 
 ## Commandes utiles
 
@@ -450,7 +524,8 @@ cargo test --manifest-path backend/Cargo.toml --lib
 SQLX_OFFLINE=true cargo test --manifest-path backend/Cargo.toml \
   --test smoke --test persist --test orchestrate --test sync_endpoint \
   --test mapping --test mapping_endpoint --test evenements --test evenements_endpoint \
-  --test auth_endpoint --test admins_endpoint --test commissions_endpoint
+  --test auth_endpoint --test admins_endpoint --test commissions_endpoint \
+  --test live_endpoint
 
 # fmt + clippy (guardrail CI)
 cargo fmt --manifest-path backend/Cargo.toml
@@ -487,6 +562,9 @@ casse.
 - `backend/src/commissions/` — CRUD Commission/Poste (écran Commissions),
   `GET /commissions` partagé avec l'écran Mapping.
 - `backend/src/evenements/` — CRUD Événements.
+- `backend/src/live.rs` — websocket de rafraîchissement live (`GET /api/ws`
+  + middleware `emit_live_event` posé sur `api_router()`), `frontend/src/lib/live.ts`
+  son pendant côté client.
 - `backend/src/auth.rs` — OTP login + `AuthAdmin` extractor.
 - `backend/migrations/` — tout le schéma, dans l'ordre chronologique des commits.
 - `frontend/src/lib/api.ts` — wrapper fetch partagé par tous les écrans.
