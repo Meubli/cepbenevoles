@@ -1,6 +1,6 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-22. Dernier commit : `b665773`.
+Dernière mise à jour : 2026-11-22. Dernier commit : `e145d2e`.
 
 ## État général
 
@@ -11,9 +11,9 @@ commit fourre-tout) :
 (écran connexion + cookie SameSite/Secure), `612b957` (restyle connexion),
 `ef8a182` (`SHEET_VALIDATION` + `validate_bloc` + e2e Événements + specs),
 `9ae7478` (restyle Événements + shell admin partagé), `fd409d1` (restyle
-Mapping), `b665773` (déconnexion + expiration glissante). Chaque commit a
-été vérifié individuellement (build + e2e complet) avant le suivant.
-Stack :
+Mapping), `b665773` (déconnexion + expiration glissante), `e145d2e`
+(écran Admins). Chaque commit a été vérifié individuellement (build + e2e
+complet) avant le suivant. Stack :
 Rust/Axum/sqlx backend, SvelteKit SPA frontend, Postgres, tests Rust (unitaires +
 intégration testcontainers) + Playwright e2e. Voir `docs/specs.md` (fonctionnel) et
 `docs/technical-specs.md` (technique) pour les specs à jour — ce fichier ne les
