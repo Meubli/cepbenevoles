@@ -174,9 +174,48 @@ duplique pas, il dit où on en est par rapport à elles.
     e2e (`e2e/tests/logout.spec.ts` — clic topbar, redirection, re-visite
     de `/evenements` après coup redirige bien vers `/connexion`, la session
     est bien morte côté serveur pas juste localement).
+- **Écran "Admins"** (specs.md §11.4, wireframe s8, `/admins`) : ajout,
+  suppression, promotion superadmin. Réservé aux superadmins côté backend
+  (nouvel extractor `auth::SuperAdmin`, 403 sinon — `AuthAdmin` seul ne
+  suffit pas) et côté frontend (ajouté comme vrai lien dans `AdminNav`).
+  - **Schéma complété** : `Admin.nom`/`Admin.prenom` existaient dans
+    specs.md §8 mais jamais dans une migration — ajoutés, nullables (migration
+    `20260101000005_admin_names.sql`) puisque l'admin bootstrap
+    (`BOOTSTRAP_SUPERADMIN_EMAIL`) n'en a pas.
+  - **FK corrigées pour permettre un vrai `DELETE`** (migration
+    `20260101000006_admin_delete_fk.sql`) : avant cette migration, retirer
+    un admin qui avait ne serait-ce qu'une session active, ou qui avait un
+    jour créé/modifié un événement/une commission/un poste/un mapping,
+    aurait échoué sur une contrainte de clé étrangère. `sessions.admin_id`
+    passe en `ON DELETE CASCADE` (une session n'a pas de sens sans son
+    admin) ; les colonnes d'audit `created_by`/`updated_by` (déjà
+    nullables) passent en `ON DELETE SET NULL` (la ligne métier doit
+    survivre, seule l'attribution se perd).
+  - **Garde-fous** (`backend/src/admins/mod.rs`) : impossible de se retirer
+    soi-même (verrouillage), impossible de retirer ou rétrograder le
+    dernier superadmin restant — sinon plus personne ne peut gérer les
+    admins. Email dupliqué → 422 explicite (pas une 500 sur la contrainte
+    unique).
+  - UI (`(admin)/admins/+page.svelte`) : liste en `comm-row`/`comm-main`
+    (réutilise les classes déjà posées pour Événements/Mapping, pas de CSS
+    neuve), ligne de l'admin connecté marquée "connecté" sans bouton
+    d'action (comme la maquette), formulaire d'ajout en `field-grid`.
+    **Interprétation assumée** : la maquette ne précise pas ce que "connecté"
+    veut dire précisément — lu ici comme "c'est votre propre compte" (email
+    de la ligne == email de `/session`), pas "a une session active en ce
+    moment" (qu'on ne pourrait de toute façon pas distinguer sans table de
+    présence temps réel). À corriger si l'intention était différente.
+  - Testé : 8 tests Rust (`backend/tests/admins_endpoint.rs` — autorisation
+    403 pour un admin non-superadmin, création + liste, email dupliqué,
+    promotion, refus de rétrograder le dernier superadmin, refus de
+    s'auto-retirer, refus de retirer le dernier superadmin par quelqu'un
+    d'autre, suppression détruit bien les sessions de la cible) + 2 tests
+    e2e (`e2e/tests/admins.spec.ts` — cycle complet créer/promouvoir/retirer
+    + un admin non-superadmin reçoit 403 sur `/api/admins`). Vérifié dans
+    le navigateur (ajout + promotion + retrait réels).
 
-Compteurs : ~75 tests Rust (unitaires + intégration, +5 pour
-`auth_endpoint.rs`), 9 tests Playwright e2e (+1 pour le logout), tous
+Compteurs : ~83 tests Rust (unitaires + intégration, +8 pour
+`admins_endpoint.rs`), 11 tests Playwright e2e (+2 pour les admins), tous
 verts au dernier run.
 
 ## Pas fait / connu cassé ou absent
@@ -208,12 +247,11 @@ verts au dernier run.
     commission colorés par couleur propre (couleur pas encore renvoyée par
     l'API, cf. "Fait" ci-dessus).
 
-Toutes les pages existantes (connexion, événements, mapping) sont
-maintenant restylées sur la maquette. Reste, côté maquette : les écrans
-qui n'existent pas encore dans l'appli du tout (Besoins, Créneaux,
-Commissions, Bénévoles, Synchro form, Générer planning, Admins,
-Responsables) — pas un restyle, une construction d'écran complète,
-hors scope ici.
+Toutes les pages existantes (connexion, événements, mapping, admins) sont
+restylées sur la maquette. Reste, côté maquette : les écrans qui
+n'existent pas encore dans l'appli du tout (Besoins, Créneaux,
+Commissions, Bénévoles, Synchro form, Générer planning, Responsables) —
+pas un restyle, une construction d'écran complète, hors scope ici.
 
 ## Prochaines étapes, dans l'ordre discuté avec l'utilisateur
 

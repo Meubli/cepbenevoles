@@ -287,3 +287,33 @@ impl FromRequestParts<AppState> for AuthAdmin {
             .ok_or(StatusCode::UNAUTHORIZED)
     }
 }
+
+/// Extracts the authenticated admin's id, rejecting with 403 if they're not
+/// a superadmin (401 if not even logged in). For the Admins screen (specs.md
+/// §11.4: "seul un superadmin peut ajouter, supprimer ou promouvoir un
+/// admin").
+pub struct SuperAdmin(pub Uuid);
+
+#[async_trait]
+impl FromRequestParts<AppState> for SuperAdmin {
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let AuthAdmin(admin_id) = AuthAdmin::from_request_parts(parts, state).await?;
+
+        let is_superadmin: bool =
+            sqlx::query_scalar!("SELECT is_superadmin FROM admins WHERE id = $1", admin_id)
+                .fetch_one(&state.db)
+                .await
+                .expect("admin must exist for a valid session");
+
+        if is_superadmin {
+            Ok(SuperAdmin(admin_id))
+        } else {
+            Err(StatusCode::FORBIDDEN)
+        }
+    }
+}

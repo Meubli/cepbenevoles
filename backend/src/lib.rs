@@ -1,3 +1,4 @@
+pub mod admins;
 pub mod auth;
 pub mod config;
 pub mod correlation;
@@ -82,6 +83,14 @@ fn api_router() -> Router<AppState> {
         .route(
             "/blocs-formulaire",
             get(evenements::endpoint::list_blocs_formulaire),
+        )
+        .route(
+            "/admins",
+            get(admins::endpoint::list_admins).post(admins::endpoint::post_admin),
+        )
+        .route(
+            "/admins/:id",
+            patch(admins::endpoint::patch_admin).delete(admins::endpoint::delete_admin_endpoint),
         )
         // Without this, an unmatched /api/* path falls through to the SPA
         // fallback below and gets served index.html as if it were a page —
