@@ -18,6 +18,7 @@ use sqlx::PgPool;
 use tokio::sync::Mutex;
 use tower_cookies::CookieManagerLayer;
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::trace::TraceLayer;
 
 use google_auth::GoogleAuth;
 use sheets::SheetsClient;
@@ -63,6 +64,7 @@ fn api_router() -> Router<AppState> {
         .route("/auth/logout", post(auth::logout))
         .route("/session", get(auth::require_session))
         .route("/sync", post(sync::endpoint::trigger_sync))
+        .route("/sync/status", get(sync::endpoint::get_sync_status))
         .route(
             "/mapping",
             get(mapping::endpoint::list_mapping).post(mapping::endpoint::post_mapping),
@@ -106,6 +108,10 @@ pub fn app(state: AppState, static_dir: Option<&str>) -> Router {
         .route("/health", get(health::health))
         .nest("/api", api_router())
         .layer(CookieManagerLayer::new())
+        // correlation_id is added last so it wraps (runs outside) this —
+        // TraceLayer's debug logs (method/path/status/latency per request)
+        // land inside the correlation span.
+        .layer(TraceLayer::new_for_http())
         .layer(middleware::from_fn(correlation::correlation_id))
         .with_state(state);
 

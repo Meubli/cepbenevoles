@@ -46,6 +46,8 @@ pub async fn request_code(
         .await
         .expect("db query failed");
 
+    tracing::debug!(email = %body.email, known_admin = admin.is_some(), "request_code");
+
     if admin.is_some() {
         let code: u32 = rand::thread_rng().gen_range(0..1_000_000);
         let code = format!("{code:06}");
@@ -120,10 +122,17 @@ pub async fn verify_code(
     .expect("db query failed");
 
     let Some(row) = row else {
+        tracing::debug!(email = %body.email, "verify_code: no active challenge");
         return StatusCode::UNAUTHORIZED;
     };
 
     if row.attempts >= MAX_ATTEMPTS || row.expires_at < Utc::now() {
+        tracing::debug!(
+            email = %body.email,
+            attempts = row.attempts,
+            expired = row.expires_at < Utc::now(),
+            "verify_code: challenge locked out"
+        );
         sqlx::query!(
             "UPDATE login_challenges SET used = true WHERE id = $1",
             row.id
@@ -143,6 +152,7 @@ pub async fn verify_code(
     .expect("db update failed");
 
     if row.code_hash != hash(&body.code) {
+        tracing::debug!(email = %body.email, "verify_code: wrong code");
         return StatusCode::UNAUTHORIZED;
     }
 
@@ -180,6 +190,7 @@ pub async fn verify_code(
     cookie.set_secure(state.session_cookie_secure);
     cookies.add(cookie);
 
+    tracing::debug!(email = %body.email, admin_id = %admin.id, "verify_code: session created");
     StatusCode::OK
 }
 
@@ -190,7 +201,10 @@ pub async fn verify_code(
 /// success. `WHERE expires_at > now()` makes the check-and-renew atomic:
 /// an already-expired session is never resurrected by this UPDATE.
 async fn renew_session(state: &AppState, cookies: &Cookies) -> Option<Uuid> {
-    let cookie = cookies.get(SESSION_COOKIE)?;
+    let Some(cookie) = cookies.get(SESSION_COOKIE) else {
+        tracing::debug!("renew_session: no session cookie");
+        return None;
+    };
     let expires_at = Utc::now() + Duration::days(SESSION_TTL_DAYS);
 
     let row = sqlx::query!(
@@ -203,6 +217,10 @@ async fn renew_session(state: &AppState, cookies: &Cookies) -> Option<Uuid> {
     .fetch_optional(&state.db)
     .await
     .expect("db query failed");
+
+    if row.is_none() {
+        tracing::debug!("renew_session: cookie does not match an active session");
+    }
 
     row.map(|r| r.admin_id)
 }

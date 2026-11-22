@@ -11,7 +11,16 @@ use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    // Default to debug for this crate's own code (app-level visibility
+    // without drowning in dependency chatter); RUST_LOG, when set,
+    // overrides this entirely.
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                tracing_subscriber::EnvFilter::new("benefrance_backend=debug,tower_http=debug,info")
+            }),
+        )
+        .init();
 
     let config = Config::from_env();
 
@@ -116,6 +125,7 @@ fn spawn_scheduler(db: PgPool, sync: SyncContext, interval_seconds: u64) {
 
         loop {
             interval.tick().await;
+            tracing::debug!("scheduled sync tick");
 
             let Ok(_guard) = sync.running.try_lock() else {
                 tracing::warn!("scheduled sync skipped: a sync is already in progress");

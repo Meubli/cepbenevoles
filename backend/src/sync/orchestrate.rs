@@ -73,9 +73,24 @@ pub async fn sync_all(
         by_sheet.entry(sheet_id).or_default().push(event);
     }
 
+    tracing::debug!(sheet_count = by_sheet.len(), "sync_all: starting");
+
     let mut outcomes = Vec::with_capacity(by_sheet.len());
     for (sheet_id, events) in by_sheet {
+        let event_count = events.len();
+        tracing::debug!(%sheet_id, event_count, "sync_all: syncing sheet");
         let result = sync_one_sheet(pool, auth, sheets, &sheet_id, &events).await;
+        match &result {
+            Ok((report, row_errors)) => tracing::debug!(
+                %sheet_id,
+                inserted = report.inserted,
+                already_present = report.already_present,
+                unrouted = report.unrouted,
+                row_errors = row_errors.len(),
+                "sync_all: sheet done"
+            ),
+            Err(err) => tracing::debug!(%sheet_id, error = %err, "sync_all: sheet failed"),
+        }
         outcomes.push(SheetSyncOutcome { sheet_id, result });
     }
     Ok(outcomes)
@@ -92,6 +107,7 @@ async fn sync_one_sheet(
 
     let token = auth.access_token().await?;
     let values = sheets.fetch_values(&token, sheet_id, TAB_NAME).await?;
+    tracing::debug!(%sheet_id, row_count = values.len(), "fetched sheet values");
 
     let Some((header, data_rows)) = values.split_first() else {
         return Ok((SyncReport::default(), Vec::new()));
@@ -111,6 +127,13 @@ async fn sync_one_sheet(
             Err(err) => row_errors.push(err),
         }
     }
+
+    tracing::debug!(
+        %sheet_id,
+        parsed = parsed.len(),
+        row_errors = row_errors.len(),
+        "parsed sheet rows"
+    );
 
     let report = persist_parsed_rows(pool, &routing, &parsed).await?;
 
