@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -106,77 +104,4 @@ pub async fn post_mapping(
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
-}
-
-#[derive(Serialize, sqlx::FromRow)]
-struct CommissionRow {
-    id: Uuid,
-    nom: String,
-    a_des_postes: bool,
-    couleur: String,
-}
-
-#[derive(Serialize, sqlx::FromRow)]
-struct PosteRow {
-    id: Uuid,
-    commission_id: Uuid,
-    nom: String,
-}
-
-#[derive(Serialize)]
-pub struct CommissionDto {
-    id: Uuid,
-    nom: String,
-    a_des_postes: bool,
-    couleur: String,
-    postes: Vec<PosteDto>,
-}
-
-#[derive(Serialize)]
-struct PosteDto {
-    id: Uuid,
-    nom: String,
-}
-
-/// Referential for the mapping screen's "Commission" / "Poste" picker.
-pub async fn list_commissions(
-    State(state): State<AppState>,
-    _admin: AuthAdmin,
-) -> Result<Json<Vec<CommissionDto>>, StatusCode> {
-    let commissions: Vec<CommissionRow> = sqlx::query_as(
-        "SELECT id, nom, a_des_postes, couleur FROM commission WHERE actif = true ORDER BY nom",
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let postes: Vec<PosteRow> =
-        sqlx::query_as("SELECT id, commission_id, nom FROM poste ORDER BY nom")
-            .fetch_all(&state.db)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let mut postes_by_commission: HashMap<Uuid, Vec<PosteDto>> = HashMap::new();
-    for p in postes {
-        postes_by_commission
-            .entry(p.commission_id)
-            .or_default()
-            .push(PosteDto {
-                id: p.id,
-                nom: p.nom,
-            });
-    }
-
-    let dtos = commissions
-        .into_iter()
-        .map(|c| CommissionDto {
-            postes: postes_by_commission.remove(&c.id).unwrap_or_default(),
-            id: c.id,
-            nom: c.nom,
-            a_des_postes: c.a_des_postes,
-            couleur: c.couleur,
-        })
-        .collect();
-
-    Ok(Json(dtos))
 }

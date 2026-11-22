@@ -1,5 +1,6 @@
 pub mod admins;
 pub mod auth;
+pub mod commissions;
 pub mod config;
 pub mod correlation;
 pub mod evenements;
@@ -12,7 +13,7 @@ pub mod sync;
 use std::sync::Arc;
 
 use axum::middleware;
-use axum::routing::{get, patch, post};
+use axum::routing::{delete, get, patch, post};
 use axum::Router;
 use sqlx::PgPool;
 use tokio::sync::Mutex;
@@ -69,7 +70,23 @@ fn api_router() -> Router<AppState> {
             "/mapping",
             get(mapping::endpoint::list_mapping).post(mapping::endpoint::post_mapping),
         )
-        .route("/commissions", get(mapping::endpoint::list_commissions))
+        .route(
+            "/commissions",
+            get(commissions::endpoint::list_commissions)
+                .post(commissions::endpoint::post_commission),
+        )
+        .route(
+            "/commissions/:id",
+            patch(commissions::endpoint::patch_commission),
+        )
+        .route(
+            "/commissions/:id/postes",
+            post(commissions::endpoint::post_poste),
+        )
+        .route(
+            "/commissions/:id/postes/:poste_id",
+            delete(commissions::endpoint::delete_poste),
+        )
         .route(
             "/evenements",
             get(evenements::endpoint::list_evenements).post(evenements::endpoint::post_evenement),

@@ -165,6 +165,55 @@ duplique pas, il dit où on en est par rapport à elles.
     `getByRole('button', { name: 'Accueil', exact: true })`). Vérifié en
     e2e (11/11) et dans le navigateur (bordures colorées, sélection
     Plateau fait bien apparaître ses postes).
+- **Écran "Synchro form"** (specs.md §7.3, wireframe s6, `/synchro`) :
+  périmètre volontairement réduit par rapport à la maquette complète
+  — décidé avec l'utilisateur plutôt que de construire doublons/permis
+  B/envoi email d'un coup (aucune détection de doublon, aucun envoi email
+  n'existe encore côté backend).
+  - **Nouveau** `GET /api/sync/status` (`backend/src/sync/endpoint.rs`) :
+    une ligne par `sheet_id` distinct utilisé par un événement actif (CTE
+    SQL : événements/noms groupés par sheet, compteur de soumissions par
+    sheet, dernier `sync_run` par sheet via `DISTINCT ON`). Un sheet
+    jamais synchronisé apparaît quand même, tous les `last_*` à null.
+  - UI (`(admin)/synchro/+page.svelte`) : un bloc par Sheet (compteur de
+    soumissions, +N depuis la dernière synchro, date de dernière synchro,
+    erreur de dernière synchro le cas échéant) + bouton global
+    "Synchroniser maintenant" (`POST /api/sync`, existant — synchronise
+    toutes les Sheets configurées d'un coup, pas par Sheet contrairement à
+    la maquette qui a un bouton par ligne) + bloc compteur de libellés non
+    mappés avec lien vers `/mapping` (réutilise `GET /api/mapping` déjà
+    existant, pas de nouvel endpoint pour ce compteur). Classes CSS
+    `.sync-status`/`.stat-wf`/`.stat-num`/`.stat-lbl` portées de la
+    maquette dans `admin.css` (n'existaient pas encore). `AdminNav`:
+    "Synchro form" devient un vrai lien (resolve `/(admin)/synchro`),
+    retiré de la liste des entrées désactivées.
+  - Testé : 2 tests Rust (`backend/tests/sync_endpoint.rs` — session
+    requise, liste une Sheet configurée avec son dernier run) + vérifié à
+    la main dans le navigateur (événement existant pointé vers la Sheet
+    stub, synchro déclenchée depuis l'écran, compteurs mis à jour, lien
+    vers Mapping suivi). Pas de test e2e Playwright dédié pour ce lot.
+  - **Non fait** (hors scope choisi pour ce lot) : détection de doublons
+    potentiels, avertissement "Transport sans permis B", envoi des
+    plannings par email — les trois blocs du bas de la maquette s6.
+- **Logs de debug** (demandé par l'utilisateur, pas lié à un écran) :
+  - `tracing_subscriber` initialisé avec un `EnvFilter` par défaut
+    `benefrance_backend=debug,tower_http=debug,info` (`backend/src/main.rs`)
+    au lieu d'aucun filtre — `RUST_LOG`, s'il est positionné, prend
+    toujours le dessus.
+  - `TraceLayer::new_for_http()` ajouté au routeur (`backend/src/lib.rs`),
+    imbriqué **dans** le span `correlation_id` (ordre des `.layer()`
+    volontaire — sinon les logs de `TraceLayer` n'auraient pas porté le
+    `correlation_id`) : log debug méthode/URI/statut/latence par requête,
+    gratuit, sans toucher aux handlers.
+  - Quelques `tracing::debug!` ciblés ajoutés à la main sur les chemins
+    chauds : sync (`orchestrate.rs` — compte de sheets, lignes fetchées,
+    parsées, par sheet ; `main.rs` — tick du scheduler) et auth
+    (`auth.rs` — email connu/inconnu sur `request_code`, raison d'un 401
+    sur `verify_code`, session créée, cookie absent/invalide sur
+    `renew_session`). Pas un log par ligne de code — ciblé sur les points
+    où "pourquoi ça n'a pas marché" se pose en pratique.
+  - `tracing-subscriber` gagne la feature `env-filter` (`backend/Cargo.toml`,
+    répercuté sur `Cargo.lock`) — nécessaire pour `EnvFilter`.
 - **Déconnexion manuelle + expiration glissante de session** (specs.md
   §11.3, gaps 6/7 ci-dessous) :
   - `POST /api/auth/logout` (`backend/src/auth.rs`) — supprime la ligne
@@ -257,6 +306,58 @@ Compteurs : ~83 tests Rust (unitaires + intégration), 11 tests Playwright
 e2e, tous verts au dernier run (pas de nouveau test pour ce lot — pur CSS,
 déjà couvert fonctionnellement par les tests existants).
 
+- **Écran "Commissions"** (specs.md §5, wireframe s5, `/commissions`) :
+  référentiel jusque-là modifiable uniquement par migration SQL. Périmètre
+  choisi avec l'utilisateur : CRUD complet (créer/modifier une commission,
+  ajouter/retirer des postes), **sans** réordonnancement des postes (la
+  table `poste` n'a pas de colonne d'ordre) et **sans** toggle
+  actif/inactif (la colonne `actif` reste migration-only, comme avant).
+  - **Nouveau module** `backend/src/commissions/` (`mod.rs` logique +
+    `endpoint.rs` HTTP) — la liste `GET /commissions` (déjà utilisée par
+    l'écran Mapping) a été **déplacée** depuis `mapping/endpoint.rs` ici,
+    enrichie de `prerequis_libre_texte`/`grille_creneaux`/`besoin_chiffre`
+    (en plus de `couleur`, ajoutée au lot précédent) : source unique pour
+    les deux écrans. `POST /commissions` (création), `PATCH
+    /commissions/:id` (modification), `POST /commissions/:id/postes`
+    (ajout d'un poste), `DELETE /commissions/:id/postes/:poste_id`
+    (suppression).
+  - **Validations** : nom non vide, `grille_creneaux` ∈
+    {generale,propre}, `couleur` au format `#rrggbb`, nom de commission
+    unique (422 explicite sur la contrainte unique, même pattern que
+    l'email admin dupliqué). **Désactiver "a des postes"** sur une
+    commission qui a encore des postes est rejeté (422) — pas de bouton
+    "retirer tous les postes en un clic" comme la maquette (admin retire
+    les postes un par un, puis bascule le toggle) : simplification assumée
+    avec l'utilisateur pour ce lot. **Supprimer un poste déjà référencé**
+    (mapping ou souhait existant) est rejeté (422, "ce poste est déjà
+    utilisé...") plutôt que de gérer une cascade — la contrainte FK
+    (`ON DELETE` par défaut = `NO ACTION`) fait le travail, juste
+    traduite en message explicite côté API.
+  - UI (`(admin)/commissions/+page.svelte`) : liste en `comm-row` (pastille
+    couleur, liste des postes le cas échéant, badges grille
+    générale/propre et sans besoin chiffré, cf. maquette), formulaires
+    Modifier/Nouvelle commission en `field-grid` avec boutons
+    Oui/Non·Générale/Propre (pas de `<select>`, même esprit que les
+    boutons commission du Mapping) et un swatch + bouton "Changer" pour la
+    couleur (couleur aléatoire générée **côté client** — HSL→hex, pas
+    d'appel serveur — dès l'ouverture du formulaire de création, modifiable
+    avant tout enregistrement, cf. specs.md §5). Panneau "Gérer les
+    postes" séparé (ajout/suppression, pas de drag-and-drop). Classes CSS
+    `.grille-badge`/`.color-swatch`/`.poste-list`/`.poste-item`/
+    `.poste-edit-row`/`.poste-drag` portées de la maquette dans
+    `admin.css` (aucune n'existait encore). Nouveau lien réel dans
+    `AdminNav` (`resolve('/(admin)/commissions')`), retiré de la liste des
+    entrées désactivées.
+  - Testé : 10 tests Rust (`backend/tests/commissions_endpoint.rs` —
+    session requise, création+liste, nom vide/dupliqué/couleur invalide
+    rejetés, modification d'un id inconnu = 404, modification change bien
+    les champs, désactivation de "a des postes" avec postes existants
+    rejetée, ajout+suppression d'un poste, suppression d'un poste
+    référencé par un mapping rejetée) + vérifié dans le navigateur
+    (création d'une commission avec couleur aléatoire, ajout puis
+    suppression d'un poste). e2e existants (mapping, 11/11) toujours
+    verts après le déplacement de `GET /commissions`.
+
 ## Pas fait / connu cassé ou absent
 
 1. ~~`docker-compose.dev.yml` + bootstrap superadmin~~ — **fait** (voir plus bas).
@@ -277,9 +378,8 @@ déjà couvert fonctionnellement par les tests existants).
 8. **Mapping scopé globalement** (pas par `sheet_id`) — décision actée comme
    acceptable tant qu'un seul formulaire existe ; à revoir si un 2ème formulaire/Sheet
    apparaît un jour (cf. specs.md §3.2, "point ouvert").
-9. **Écran Commissions** (créer/éditer commissions et postes à la main) —
-   n'existe pas, le référentiel n'est modifiable que par migration SQL pour
-   l'instant.
+9. ~~Écran Commissions (créer/éditer commissions et postes à la main)~~ —
+   **fait** (voir plus bas).
 10. ~~`/evenements` et `/mapping` ne reprenaient pas la maquette~~ — **fait**
     (voir plus bas) : shell admin partagé + sidebar nav, les deux écrans
     restylés (s11/s10). Écart assumé sur Mapping : pas de boutons
@@ -287,61 +387,11 @@ déjà couvert fonctionnellement par les tests existants).
     l'API, cf. "Fait" ci-dessus).
 
 Toutes les pages existantes (connexion, événements, mapping, admins,
-synchro) sont restylées sur la maquette. Reste, côté maquette : les écrans
-qui n'existent pas encore dans l'appli du tout (Besoins, Créneaux,
-Commissions, Bénévoles, Générer planning, Responsables) — pas un restyle,
-une construction d'écran complète, hors scope ici.
-
-- **Écran "Synchro form"** (specs.md §7.3, wireframe s6, `/synchro`) :
-  périmètre volontairement réduit par rapport à la maquette complète
-  — décidé avec l'utilisateur plutôt que de construire doublons/permis
-  B/envoi email d'un coup (aucune détection de doublon, aucun envoi email
-  n'existe encore côté backend).
-  - **Nouveau** `GET /api/sync/status` (`backend/src/sync/endpoint.rs`) :
-    une ligne par `sheet_id` distinct utilisé par un événement actif (CTE
-    SQL : événements/noms groupés par sheet, compteur de soumissions par
-    sheet, dernier `sync_run` par sheet via `DISTINCT ON`). Un sheet
-    jamais synchronisé apparaît quand même, tous les `last_*` à null.
-  - UI (`(admin)/synchro/+page.svelte`) : un bloc par Sheet (compteur de
-    soumissions, +N depuis la dernière synchro, date de dernière synchro,
-    erreur de dernière synchro le cas échéant) + bouton global
-    "Synchroniser maintenant" (`POST /api/sync`, existant — synchronise
-    toutes les Sheets configurées d'un coup, pas par Sheet contrairement à
-    la maquette qui a un bouton par ligne) + bloc compteur de libellés non
-    mappés avec lien vers `/mapping` (réutilise `GET /api/mapping` déjà
-    existant, pas de nouvel endpoint pour ce compteur). Classes CSS
-    `.sync-status`/`.stat-wf`/`.stat-num`/`.stat-lbl` portées de la
-    maquette dans `admin.css` (n'existaient pas encore). `AdminNav`:
-    "Synchro form" devient un vrai lien (resolve `/(admin)/synchro`),
-    retiré de la liste des entrées désactivées.
-  - Testé : 2 tests Rust (`backend/tests/sync_endpoint.rs` — session
-    requise, liste une Sheet configurée avec son dernier run) + vérifié à
-    la main dans le navigateur (événement existant pointé vers la Sheet
-    stub, synchro déclenchée depuis l'écran, compteurs mis à jour, lien
-    vers Mapping suivi). Pas de test e2e Playwright dédié pour ce lot.
-  - **Non fait** (hors scope choisi pour ce lot) : détection de doublons
-    potentiels, avertissement "Transport sans permis B", envoi des
-    plannings par email — les trois blocs du bas de la maquette s6.
-
-- **Logs de debug** (demandé par l'utilisateur, pas lié à un écran) :
-  - `tracing_subscriber` initialisé avec un `EnvFilter` par défaut
-    `benefrance_backend=debug,tower_http=debug,info` (`backend/src/main.rs`)
-    au lieu d'aucun filtre — `RUST_LOG`, s'il est positionné, prend
-    toujours le dessus.
-  - `TraceLayer::new_for_http()` ajouté au routeur (`backend/src/lib.rs`),
-    imbriqué **dans** le span `correlation_id` (ordre des `.layer()`
-    volontaire — sinon les logs de `TraceLayer` n'auraient pas porté le
-    `correlation_id`) : log debug méthode/URI/statut/latence par requête,
-    gratuit, sans toucher aux handlers.
-  - Quelques `tracing::debug!` ciblés ajoutés à la main sur les chemins
-    chauds : sync (`orchestrate.rs` — compte de sheets, lignes fetchées,
-    parsées, par sheet ; `main.rs` — tick du scheduler) et auth
-    (`auth.rs` — email connu/inconnu sur `request_code`, raison d'un 401
-    sur `verify_code`, session créée, cookie absent/invalide sur
-    `renew_session`). Pas un log par ligne de code — ciblé sur les points
-    où "pourquoi ça n'a pas marché" se pose en pratique.
-  - `tracing-subscriber` gagne la feature `env-filter` (`backend/Cargo.toml`,
-    répercuté sur `Cargo.lock`) — nécessaire pour `EnvFilter`.
+synchro, commissions) sont restylées sur la maquette ou construites
+dessus. Reste, côté maquette : les écrans qui n'existent pas encore dans
+l'appli du tout (Besoins, Créneaux, Bénévoles, Générer planning,
+Responsables) — pas un restyle, une construction d'écran complète, hors
+scope ici.
 
 ## Prochaines étapes, dans l'ordre discuté avec l'utilisateur
 
@@ -357,7 +407,10 @@ une construction d'écran complète, hors scope ici.
 7. ~~Écran "Synchro form" (périmètre réduit, cf. "Fait")~~ — fait (voir
    plus bas). Doublons/permis B/envoi email restent à construire, pas
    décidé quand.
-8. Rate limiting (DB, décider header IP) — seul point ouvert restant de
+8. ~~Écran "Commissions" (périmètre réduit, cf. "Fait")~~ — fait (voir
+   plus bas). Réordonnancement des postes et toggle actif/inactif
+   restent à construire, pas décidé quand.
+9. Rate limiting (DB, décider header IP) — seul point ouvert restant de
    cette liste.
 
 ## Commandes utiles
@@ -396,7 +449,8 @@ cargo test --manifest-path backend/Cargo.toml --lib
 # Tests Rust intégration (besoin docker-compose.test.yml up, Postgres sur :55433)
 SQLX_OFFLINE=true cargo test --manifest-path backend/Cargo.toml \
   --test smoke --test persist --test orchestrate --test sync_endpoint \
-  --test mapping --test mapping_endpoint --test evenements --test evenements_endpoint
+  --test mapping --test mapping_endpoint --test evenements --test evenements_endpoint \
+  --test auth_endpoint --test admins_endpoint --test commissions_endpoint
 
 # fmt + clippy (guardrail CI)
 cargo fmt --manifest-path backend/Cargo.toml
@@ -428,7 +482,10 @@ casse.
 - `backend/src/sync/` — parsing form + orchestration + persistance +
   `endpoint.rs` (`POST /sync` déclenchement manuel, `GET /sync/status`
   écran Synchro).
-- `backend/src/mapping/` — résolution souhaits + écran Mapping.
+- `backend/src/mapping/` — résolution souhaits + écran Mapping (le
+  référentiel Commission/Poste lui-même vit dans `commissions/`).
+- `backend/src/commissions/` — CRUD Commission/Poste (écran Commissions),
+  `GET /commissions` partagé avec l'écran Mapping.
 - `backend/src/evenements/` — CRUD Événements.
 - `backend/src/auth.rs` — OTP login + `AuthAdmin` extractor.
 - `backend/migrations/` — tout le schéma, dans l'ordre chronologique des commits.
