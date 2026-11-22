@@ -113,6 +113,7 @@ struct CommissionRow {
     id: Uuid,
     nom: String,
     a_des_postes: bool,
+    couleur: String,
 }
 
 #[derive(Serialize, sqlx::FromRow)]
@@ -127,6 +128,7 @@ pub struct CommissionDto {
     id: Uuid,
     nom: String,
     a_des_postes: bool,
+    couleur: String,
     postes: Vec<PosteDto>,
 }
 
@@ -142,7 +144,7 @@ pub async fn list_commissions(
     _admin: AuthAdmin,
 ) -> Result<Json<Vec<CommissionDto>>, StatusCode> {
     let commissions: Vec<CommissionRow> = sqlx::query_as(
-        "SELECT id, nom, a_des_postes FROM commission WHERE actif = true ORDER BY nom",
+        "SELECT id, nom, a_des_postes, couleur FROM commission WHERE actif = true ORDER BY nom",
     )
     .fetch_all(&state.db)
     .await
@@ -172,6 +174,7 @@ pub async fn list_commissions(
             id: c.id,
             nom: c.nom,
             a_des_postes: c.a_des_postes,
+            couleur: c.couleur,
         })
         .collect();
 

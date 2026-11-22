@@ -11,7 +11,13 @@
 	};
 
 	type Poste = { id: string; nom: string };
-	type Commission = { id: string; nom: string; a_des_postes: boolean; postes: Poste[] };
+	type Commission = {
+		id: string;
+		nom: string;
+		a_des_postes: boolean;
+		couleur: string;
+		postes: Poste[];
+	};
 
 	let rows = $state<MappingRow[]>([]);
 	let commissions = $state<Commission[]>([]);
@@ -67,6 +73,11 @@
 	}
 
 	const POLYVALENT_VALUE = '__polyvalent__';
+
+	function selectCommission(id: string) {
+		selectedCommissionId = id;
+		selectedPosteId = '';
+	}
 
 	async function saveMapping(libelle: string) {
 		error = null;
@@ -159,25 +170,49 @@
 					<div class="field-grid">
 						<div class="field wf">
 							<span class="wf-label">Commission</span>
-							<select class="input-wf" bind:value={selectedCommissionId}>
-								<option value="">— commission —</option>
-								<option value={POLYVALENT_VALUE}>Bénévole polyvalent</option>
+							<div class="btn-group">
+								<button
+									class="btn-wf"
+									class:primary={selectedCommissionId === POLYVALENT_VALUE}
+									onclick={() => selectCommission(POLYVALENT_VALUE)}
+								>
+									Bénévole polyvalent
+								</button>
 								{#each commissions as c (c.id)}
-									<option value={c.id}>{c.nom}</option>
+									<button
+										class="btn-wf"
+										class:primary={selectedCommissionId === c.id}
+										style="border-left:4px solid {c.couleur}"
+										onclick={() => selectCommission(c.id)}
+									>
+										{c.nom}
+									</button>
 								{/each}
-							</select>
+							</div>
 						</div>
 						{#if selectedCommission()?.a_des_postes}
 							<div class="field wf">
 								<span class="wf-label">
 									Poste <span class="optional-tag">— uniquement si la commission choisie en a</span>
 								</span>
-								<select class="input-wf" bind:value={selectedPosteId}>
-									<option value="">Aucun poste précis</option>
+								<div class="btn-group">
+									<button
+										class="btn-wf"
+										class:primary={selectedPosteId === ''}
+										onclick={() => (selectedPosteId = '')}
+									>
+										Aucun poste précis
+									</button>
 									{#each selectedCommission()?.postes ?? [] as p (p.id)}
-										<option value={p.id}>{p.nom}</option>
+										<button
+											class="btn-wf"
+											class:primary={selectedPosteId === p.id}
+											onclick={() => (selectedPosteId = p.id)}
+										>
+											{p.nom}
+										</button>
 									{/each}
-								</select>
+								</div>
 							</div>
 						{/if}
 					</div>

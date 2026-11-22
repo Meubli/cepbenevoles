@@ -225,4 +225,5 @@ async fn list_commissions_returns_the_seeded_referential_with_nested_postes() {
     let plateau = commissions.iter().find(|c| c["nom"] == "Plateau").unwrap();
     let postes = plateau["postes"].as_array().unwrap();
     assert!(postes.iter().any(|p| p["nom"] == "Juge de ligne"));
+    assert_eq!(plateau["couleur"], "#9065c9");
 }

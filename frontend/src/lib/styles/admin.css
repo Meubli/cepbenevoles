@@ -195,6 +195,15 @@
 	border-top-color: var(--accent);
 }
 
+.btn-group {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+.btn-group .btn-wf {
+	padding: 7px 12px;
+}
+
 .toolbar-row {
 	display: flex;
 	gap: 8px;

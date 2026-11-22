@@ -66,7 +66,7 @@ test('an admin maps a pending label to a commission from the Mapping screen', as
 	await expect(row).toContainText('non mappé');
 
 	await row.getByRole('button', { name: 'Associer' }).click();
-	await row.getByRole('combobox').first().selectOption({ label: 'Accueil' });
+	await row.getByRole('button', { name: 'Accueil', exact: true }).click();
 	await row.getByRole('button', { name: 'Enregistrer' }).click();
 
 	await expect(row).not.toContainText('non mappé');

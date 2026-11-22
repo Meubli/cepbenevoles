@@ -1,6 +1,6 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-22. Dernier commit : `2e29306`.
+Dernière mise à jour : 2026-11-22. Dernier commit : `3232678`.
 
 ## État général
 
@@ -140,15 +140,31 @@ duplique pas, il dit où on en est par rapport à elles.
   "Tous"/"Non mappés (N)" (purement client, filtre `rows` déjà chargées, pas
   de nouvel endpoint), liste en `comm-row` (bordure teintée `--accent` +
   pill "non mappé" pour les libellés en attente, cf. mockup), formulaire
-  d'association en `field-grid` sous la ligne concernée. Écart assumé par
-  rapport à la maquette : pas de boutons de commission colorés par couleur
-  propre (`--c-accueil` etc.) — ces couleurs sont décrites comme assignées
-  depuis l'écran Commissions (§5.4, pas encore construit) et l'API
-  `/commissions` ne renvoie aucune couleur aujourd'hui ; les boutons
-  commission/poste restent de simples `btn-wf`. `e2e/tests/mapping.spec.ts`
+  d'association en `field-grid` sous la ligne concernée. `e2e/tests/mapping.spec.ts`
   adapté (`<tr>` → `[data-testid="mapping-row"]`, même raison que
   Événements). Vérifié en e2e (8/8) ; vérifié dans le navigateur à vide (DB
   dev sans libellé synchronisé pour l'instant).
+  - **Boutons commission colorés** (demandé par l'utilisateur après coup) :
+    l'écart ci-dessus (plus de couleur propre, `/commissions` ne la
+    renvoyait pas) est corrigé — `couleur` (déjà en base depuis la
+    migration seed, jamais exposée) ajoutée à `CommissionRow`/`CommissionDto`
+    (`backend/src/mapping/endpoint.rs`), assertion ajoutée dans
+    `mapping_endpoint.rs`. Le formulaire Associer/Modifier
+    (`(admin)/mapping/+page.svelte`) remplace ses deux `<select>`
+    Commission/Poste par des groupes de boutons (`.btn-group`, pas encore
+    porté dans `admin.css` malgré son usage déjà existant pour le filtre
+    Tous/Non mappés — ajouté au passage), chaque bouton commission avec
+    `border-left: 4px solid {couleur}` comme la maquette s10 (pas de
+    classes `.c-accueil` etc. codées en dur : la couleur vient de l'API,
+    pas d'un jeu de classes fixe). **Écart assumé** : "Bénévole polyvalent"
+    reste un bouton simple sans couleur en tête de la liste commission —
+    la maquette ne le montre pas du tout dans ce formulaire (un libellé
+    polyvalent y est déjà pré-mappé sans bouton Modifier), mais l'app
+    permet d'en mapper un nouveau si besoin, capacité gardée.
+    `e2e/tests/mapping.spec.ts` adapté (`getByRole('combobox')` →
+    `getByRole('button', { name: 'Accueil', exact: true })`). Vérifié en
+    e2e (11/11) et dans le navigateur (bordures colorées, sélection
+    Plateau fait bien apparaître ses postes).
 - **Déconnexion manuelle + expiration glissante de session** (specs.md
   §11.3, gaps 6/7 ci-dessous) :
   - `POST /api/auth/logout` (`backend/src/auth.rs`) — supprime la ligne
