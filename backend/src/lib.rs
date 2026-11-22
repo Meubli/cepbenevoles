@@ -3,6 +3,7 @@ pub mod config;
 pub mod correlation;
 pub mod google_auth;
 pub mod health;
+pub mod mapping;
 pub mod sheets;
 pub mod sync;
 
@@ -53,6 +54,11 @@ fn api_router() -> Router<AppState> {
         .route("/auth/verify-code", post(auth::verify_code))
         .route("/session", get(auth::require_session))
         .route("/sync", post(sync::endpoint::trigger_sync))
+        .route(
+            "/mapping",
+            get(mapping::endpoint::list_mapping).post(mapping::endpoint::post_mapping),
+        )
+        .route("/commissions", get(mapping::endpoint::list_commissions))
 }
 
 /// `static_dir` is the built SvelteKit SPA (technical-specs.md §3); absent

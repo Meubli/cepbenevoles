@@ -2,7 +2,14 @@
 	"extends": "$app/tsconfig",
 	"compilerOptions": {
 		"strict": true,
-		"types": ["$app/types", "node"]
+		"types": ["$app/types", "node"],
+		// Mirrors package.json's "imports" map ("#lib" -> "./src/lib") so TS
+		// module resolution can find it — "imports"-field resolution alone
+		// didn't pick up extensionless .ts specifiers in this project.
+		"paths": {
+			"#lib": ["./src/lib/index.ts"],
+			"#lib/*": ["./src/lib/*"]
+		}
 	},
 	"include": ["src", "vite.config.ts", "prettier.config.js", "eslint.config.js"]
 }

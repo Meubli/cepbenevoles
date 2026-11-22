@@ -113,6 +113,12 @@ async fn sync_one_sheet(
     }
 
     let report = persist_parsed_rows(pool, &routing, &parsed).await?;
+
+    // A submission inserted here may already have a mapping (or may be the
+    // one that unblocks a mapping race, cf. specs.md §3.2) — sweep now
+    // rather than waiting for an admin to save an unrelated mapping.
+    crate::mapping::resolve_pending_libelles(pool).await?;
+
     Ok((report, row_errors))
 }
 
