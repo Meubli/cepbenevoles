@@ -24,6 +24,12 @@ export default defineConfig({
 			SMTP_PORT: process.env.E2E_SMTP_PORT ?? '11025',
 			SMTP_FROM: 'benefrance@example.org',
 			SESSION_COOKIE_SECURE: 'false',
+			// No GOOGLE_SERVICE_ACCOUNT_KEY_PATH here, so SyncContext is None;
+			// SHEET_VALIDATION=required (the default) would then reject any
+			// sheet_id outright (backend/src/evenements/mod.rs
+			// SheetIdError::CannotVerify) — e2e isn't testing real Sheets
+			// reachability, just the Événements screen's own form/validation.
+			SHEET_VALIDATION: 'skip',
 			// Serves the real built SPA (technical-specs.md §3) so a
 			// page.goto('/mapping') reaches the actual page, not a 404.
 			STATIC_DIR: '../frontend/build'

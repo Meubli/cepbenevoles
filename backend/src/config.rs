@@ -27,6 +27,13 @@ pub struct Config {
     /// true (real deployments are HTTPS); set `SESSION_COOKIE_SECURE=false`
     /// for local dev/e2e over plain http.
     pub session_cookie_secure: bool,
+    /// `false` (`SHEET_VALIDATION=skip`) accepts an `Evenement.sheet_id`
+    /// without checking it against the real Sheets API when no
+    /// `SyncContext` is configured — meant for e2e/dev only. Defaults to
+    /// `true` (`required`): the user was explicit that an unverifiable
+    /// `sheet_id` must fail the save, not be silently accepted
+    /// (specs.md §3.3).
+    pub sheet_validation_required: bool,
     /// Email of the first superadmin to seed at startup (specs.md §11.4),
     /// idempotent (no-op if an admin with that email already exists).
     /// Absent: no bootstrap, nobody can log in until a row exists in
@@ -60,6 +67,9 @@ impl Config {
             bootstrap_superadmin_email: std::env::var("BOOTSTRAP_SUPERADMIN_EMAIL").ok(),
             session_cookie_secure: std::env::var("SESSION_COOKIE_SECURE")
                 .map(|v| v != "false")
+                .unwrap_or(true),
+            sheet_validation_required: std::env::var("SHEET_VALIDATION")
+                .map(|v| v != "skip")
                 .unwrap_or(true),
         }
     }

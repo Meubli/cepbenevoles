@@ -36,7 +36,7 @@ async fn creates_an_event_without_sheet_id_with_no_validation_call() {
     let pool = spawn_test_db().await;
     let admin_id = insert_admin(&pool).await;
 
-    let id = create_evenement(&pool, None, admin_id, input("Indiv", None))
+    let id = create_evenement(&pool, None, true, admin_id, input("Indiv", None))
         .await
         .unwrap();
 
@@ -56,23 +56,54 @@ async fn rejects_date_fin_before_date_debut() {
     let mut bad = input("Indiv", None);
     bad.date_fin = chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
 
-    let err = create_evenement(&pool, None, admin_id, bad)
+    let err = create_evenement(&pool, None, true, admin_id, bad)
         .await
         .unwrap_err();
     assert!(matches!(err, SaveEvenementError::InvalidDates));
 }
 
 #[tokio::test]
-async fn sheet_id_validation_is_skipped_without_a_sync_context() {
+async fn sheet_id_without_sync_context_is_rejected_when_validation_required() {
     // No SyncContext (local dev / e2e without Google credentials, cf.
-    // AppState.sync): a sheet_id is still accepted rather than blocking
-    // event creation in every environment lacking real Google credentials.
+    // AppState.sync) + the default SHEET_VALIDATION=required: the save must
+    // fail rather than silently accept an unverifiable sheet_id (the user
+    // was explicit about this).
     let pool = spawn_test_db().await;
     let admin_id = insert_admin(&pool).await;
 
-    let id = create_evenement(&pool, None, admin_id, input("Indiv", Some("some-sheet-id")))
-        .await
-        .unwrap();
+    let err = create_evenement(
+        &pool,
+        None,
+        true,
+        admin_id,
+        input("Indiv", Some("some-sheet-id")),
+    )
+    .await
+    .unwrap_err();
+
+    assert!(matches!(
+        err,
+        SaveEvenementError::SheetId(SheetIdError::CannotVerify)
+    ));
+}
+
+#[tokio::test]
+async fn sheet_id_validation_is_skipped_without_a_sync_context_when_not_required() {
+    // SHEET_VALIDATION=skip (e2e/dev only): a sheet_id is accepted rather
+    // than blocking event creation in every environment lacking real
+    // Google credentials.
+    let pool = spawn_test_db().await;
+    let admin_id = insert_admin(&pool).await;
+
+    let id = create_evenement(
+        &pool,
+        None,
+        false,
+        admin_id,
+        input("Indiv", Some("some-sheet-id")),
+    )
+    .await
+    .unwrap();
 
     let sheet_id: Option<String> =
         sqlx::query_scalar("SELECT sheet_id FROM evenement WHERE id = $1")
@@ -133,6 +164,7 @@ async fn sheet_id_not_found_is_rejected_with_a_distinct_message() {
     let err = create_evenement(
         &pool,
         Some(&sync),
+        true,
         admin_id,
         input("Indiv", Some("missing")),
     )
@@ -154,6 +186,7 @@ async fn sheet_id_forbidden_is_rejected_with_a_distinct_message() {
     let err = create_evenement(
         &pool,
         Some(&sync),
+        true,
         admin_id,
         input("Indiv", Some("private")),
     )
@@ -175,6 +208,7 @@ async fn sheet_id_accessible_is_accepted() {
     create_evenement(
         &pool,
         Some(&sync),
+        true,
         admin_id,
         input("Indiv", Some("ok-sheet")),
     )
@@ -186,13 +220,13 @@ async fn sheet_id_accessible_is_accepted() {
 async fn update_changes_fields_and_archive_toggles_independently() {
     let pool = spawn_test_db().await;
     let admin_id = insert_admin(&pool).await;
-    let id = create_evenement(&pool, None, admin_id, input("Indiv", None))
+    let id = create_evenement(&pool, None, true, admin_id, input("Indiv", None))
         .await
         .unwrap();
 
     let mut renamed = input("Indiv renommé", None);
     renamed.lieu = Some("Futuroscope".to_string());
-    update_evenement(&pool, None, admin_id, id, renamed)
+    update_evenement(&pool, None, true, admin_id, id, renamed)
         .await
         .unwrap();
 
@@ -230,7 +264,7 @@ async fn empty_nom_is_rejected() {
     let pool = spawn_test_db().await;
     let admin_id = insert_admin(&pool).await;
 
-    let err = create_evenement(&pool, None, admin_id, input("   ", None))
+    let err = create_evenement(&pool, None, true, admin_id, input("   ", None))
         .await
         .unwrap_err();
     assert!(matches!(err, SaveEvenementError::EmptyNom));
@@ -244,7 +278,7 @@ async fn sheet_id_without_bloc_is_rejected() {
     let mut bad = input("Indiv", Some("some-sheet"));
     bad.bloc_formulaire = None;
 
-    let err = create_evenement(&pool, None, admin_id, bad)
+    let err = create_evenement(&pool, None, false, admin_id, bad)
         .await
         .unwrap_err();
     assert!(matches!(
@@ -261,7 +295,7 @@ async fn unknown_bloc_is_rejected() {
     let mut bad = input("Indiv", Some("some-sheet"));
     bad.bloc_formulaire = Some("form_2099_made_up".to_string());
 
-    let err = create_evenement(&pool, None, admin_id, bad)
+    let err = create_evenement(&pool, None, false, admin_id, bad)
         .await
         .unwrap_err();
     assert!(matches!(
@@ -278,6 +312,7 @@ async fn two_events_cannot_claim_the_same_bloc_on_the_same_sheet() {
     create_evenement(
         &pool,
         None,
+        false,
         admin_id,
         input("Indiv 1", Some("shared-sheet")),
     )
@@ -287,6 +322,7 @@ async fn two_events_cannot_claim_the_same_bloc_on_the_same_sheet() {
     let err = create_evenement(
         &pool,
         None,
+        false,
         admin_id,
         input("Indiv 2", Some("shared-sheet")),
     )
@@ -303,9 +339,16 @@ async fn updating_an_unknown_id_is_not_found() {
     let pool = spawn_test_db().await;
     let admin_id = insert_admin(&pool).await;
 
-    let err = update_evenement(&pool, None, admin_id, Uuid::new_v4(), input("Indiv", None))
-        .await
-        .unwrap_err();
+    let err = update_evenement(
+        &pool,
+        None,
+        true,
+        admin_id,
+        Uuid::new_v4(),
+        input("Indiv", None),
+    )
+    .await
+    .unwrap_err();
     assert!(matches!(err, SaveEvenementError::NotFound));
 }
 
@@ -331,6 +374,7 @@ async fn unarchiving_into_a_bloc_conflict_is_rejected() {
     let archived_id = create_evenement(
         &pool,
         None,
+        false,
         admin_id,
         input("Indiv archivé", Some("shared-sheet")),
     )
@@ -344,6 +388,7 @@ async fn unarchiving_into_a_bloc_conflict_is_rejected() {
     create_evenement(
         &pool,
         None,
+        false,
         admin_id,
         input("Indiv actif", Some("shared-sheet")),
     )

@@ -1,10 +1,19 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-22, après commit `ffa025b`.
+Dernière mise à jour : 2026-11-22. Dernier commit : `ffa025b`.
 
 ## État général
 
-Repo propre, tout commité (`git status` vide à la rédaction de ce fichier). Stack :
+**`git status` NON vide à la rédaction de ce fichier** — rien commité depuis
+`ffa025b`, tout ce qui suit dans "Fait" est en working tree seulement. Gros
+diff (~18 fichiers trackés modifiés + fichiers neufs : `.env.dev.example`,
+`dev/`, `docker-compose.dev.yml`, `frontend/src/routes/connexion/`,
+`e2e/tests/connexion.spec.ts`, `e2e/sheets-stub/fixtures/`,
+`backend/.sqlx/query-28f3bb2d70c7d0fc5108bd0c92c947f3bad264a33a6e0f96a6be6c01e33afc99.json`)
+couvrant 5 lots de travail à peu près indépendants (dev compose + bootstrap,
+stub Sheets, écran connexion + cookie, son restyle, `SHEET_VALIDATION`/
+`validate_bloc`/e2e Événements) — pas encore demandé à l'utilisateur s'il
+veut un seul commit ou un par lot. Stack :
 Rust/Axum/sqlx backend, SvelteKit SPA frontend, Postgres, tests Rust (unitaires +
 intégration testcontainers) + Playwright e2e. Voir `docs/specs.md` (fonctionnel) et
 `docs/technical-specs.md` (technique) pour les specs à jour — ce fichier ne les
@@ -36,64 +45,154 @@ duplique pas, il dit où on en est par rapport à elles.
   au désarchivage).
 - **Middleware correlation-id** (`backend/src/correlation.rs`) : UUID par requête,
   présent dans le span tracing + header + body JSON des 5xx.
+- **`docker-compose.dev.yml`** (Postgres/Mailpit/stub Sheets pour dev local,
+  ports standard 5432/1025/8025/8089, volume Postgres persistant, `name:
+  benefrance-dev` pour ne pas entrer en collision avec `docker-compose.test.yml`
+  — `name: benefrance-test` — quand les deux tournent en même temps) +
+  **bootstrap premier superadmin** (`BOOTSTRAP_SUPERADMIN_EMAIL`, insert
+  idempotent `ON CONFLICT DO NOTHING` au démarrage dans `main.rs`). Voir
+  `.env.dev.example`.
+- **Stub Sheets branché en dev** (`e2e/sheets-stub/server.mjs`) : sert
+  maintenant `/token` (faux échange JWT, sans vérifier la signature) et
+  `/v4/spreadsheets/:id/values/:range` avec les vraies données de la fixture
+  2027 (`e2e/sheets-stub/fixtures/sheets_responses_form1.json`, copie de
+  `backend/tests/fixtures/sheets_responses_form1.json`), peu importe le
+  `sheet_id`/range demandé — `check_access` (`/v4/spreadsheets/:id`) répond
+  200 pour n'importe quel id. `SHEETS_API_BASE_URL` (nouveau, `config.rs`,
+  avant en dur dans `main.rs`) + `dev/service-account-key.dev.json` (réutilise
+  la clé RSA de test déjà committée, pas un vrai secret, voir `dev/README.md`)
+  pointent dessus. Vérifié bout en bout (JWT signé → `/token` → `check_access`
+  + `fetch_values` → 4 lignes parsées) avec un test jetable, supprimé après
+  coup — pas de test permanent ajouté.
+- **Écran "connexion"** (`frontend/src/routes/connexion/+page.svelte`) :
+  formulaire email → code OTP en deux étapes, contre les endpoints existants
+  (`/api/auth/request-code`, `/api/auth/verify-code`). `frontend/src/lib/api.ts`
+  gagne une option `skipAuthRedirect` pour que la page de connexion elle-même
+  puisse recevoir un 401 (mauvais code) sans déclencher la redirection globale
+  vers `/connexion` (qui aurait bouclé sur elle-même). **Reprend fidèlement la
+  maquette `mockups/wireframes.html` écran s0** : titre/tags, cartes "wf"
+  pointillées, étape 1 (email) / étape 2 (6 cases de code séparées avec
+  auto-avance/backspace/paste, pas un simple input texte), palette + police
+  monospace pour les titres, variante sombre automatique
+  (`prefers-color-scheme`). CSS scoping volontaire au composant seul (pas de
+  style partagé/topbar) : `/mapping` et `/evenements` restent non stylées pour
+  l'instant, décision prise avec l'utilisateur de limiter le restyle à cet
+  écran pour l'instant. La page s'enveloppe dans son propre `<main>` local
+  (classe scopée `.connexion-main`, pas `:global(main)` — `+layout.svelte` ne
+  contient aucun `<main>`, viser `:global(main)` n'accrochait rien et cassait
+  l'alignement, bug trouvé en regardant dans le navigateur et corrigé). Seul
+  `:global(body)` reste global ; ne fuite pas vers les autres écrans parce
+  que toute navigation vers/depuis `/connexion` est un `window.location.href`
+  (rechargement complet), jamais un routage SPA — à revisiter si ça change un
+  jour. Testé en vrai dans le navigateur (saisie email → code lu dans
+  Mailpit → 6 cases remplies en auto-avance → `/mapping`) + e2e
+  (`e2e/tests/connexion.spec.ts`, 2 tests : succès + mauvais code reste sur
+  place avec message inline).
+- **Cookie de session `SameSite=Lax` + `Secure`** (`backend/src/auth.rs`,
+  specs.md §11.3) : `Secure` piloté par `session_cookie_secure`
+  (`AppState`/`Config`, env `SESSION_COOKIE_SECURE`, défaut `true` — `false`
+  dans `.env.dev.example` et `e2e/playwright.config.ts`, le dev/e2e tournant
+  en http simple).
+- **`SHEET_VALIDATION=required|skip`** (`backend/src/config.rs`,
+  `sheet_validation_required`) : sans `SyncContext` configuré,
+  l'enregistrement d'un `sheet_id` **échoue** désormais par défaut
+  (`SheetIdError::CannotVerify`, 422) au lieu d'être accepté silencieusement —
+  comportement demandé explicitement. `SHEET_VALIDATION=skip` restaure
+  l'ancien comportement (accepté sans vérification), utilisé uniquement par
+  `e2e/playwright.config.ts` (pas de Google configuré en e2e, et les tests
+  Événements n'exercent pas la vraie API Sheets).
+- **`validate_bloc` ne masque plus une panne DB en "bloc inconnu" 422** :
+  `BlocError` gagne un variant `Database` propre (propagé via `?` au lieu
+  d'être mappé à la main), routé en 500 par `save_error_response`
+  (`backend/src/evenements/endpoint.rs`) au lieu de rejoindre le 422
+  générique des autres variants (`Missing`/`Unknown`/`AlreadyUsed`).
+- **e2e Événements étendu** (`e2e/tests/evenements.spec.ts`) : sélecteur de
+  bloc caché tant qu'aucun `sheet_id` n'est saisi puis visible une fois
+  rempli, événement créé avec bloc gardant bien son `sheet_id` ; `sheet_id`
+  sans bloc choisi rejeté avec message inline, formulaire conservé (pas
+  réinitialisé sur erreur).
+- **`docs/specs.md` §3.3 mis à jour** : règle bloc requis si sheet_id posé,
+  unicité `(sheet_id, bloc_formulaire)` par événements actifs + re-vérifiée
+  au désarchivage, acceptation ID nu ou URL complète + rejet des URL Forms,
+  et le nouveau comportement par défaut de `SHEET_VALIDATION` (le texte
+  précédent décrivait encore l'ancien "ignoré silencieusement").
 
-Compteurs : ~70 tests Rust (unitaires + intégration), 4 tests Playwright e2e,
-tous verts au dernier run.
+Compteurs : ~70 tests Rust (unitaires + intégration, +1 depuis le dernier
+comptage pour `SHEET_VALIDATION`), 8 tests Playwright e2e, tous verts au
+dernier run.
 
 ## Pas fait / connu cassé ou absent
 
-1. **`docker-compose.dev.yml` demandé par l'utilisateur** (mock Sheets API +
-   Mailpit + Postgres pour dev local) — **jamais commencé**. Actuellement seul
-   `docker-compose.test.yml` existe (pour les tests/e2e, pas pensé pour un usage
-   dev au quotidien).
-2. **Personne ne peut se connecter nulle part** : pas de bootstrap du premier
-   superadmin (spec §11.4 dit "via migration/seed au démarrage du projet" — pas
-   fait). Bloquant pour tester "connexion" (prochaine étape voulue par
-   l'utilisateur) et pour la prod.
-3. **`validate_sheet_id` skip silencieux sans `SyncContext`** : l'utilisateur a dit
-   explicitement que l'enregistrement doit **échouer** si la Sheet ne peut pas être
-   vérifiée, pas être accepté silencieusement. Actuellement si aucune clé de
-   service account n'est configurée, la validation est ignorée et l'enregistrement
-   passe quand même. Proposition pas implémentée : config `SHEET_VALIDATION=required|skip`
-   (défaut `required`), seul l'environnement e2e/dev passerait `skip`.
-4. **`validate_bloc` masque une erreur DB en "bloc inconnu" (422)** au lieu de la
-   remonter en 500 — message trompeur en cas de panne DB réelle. Petit bug, pas
-   corrigé (`backend/src/evenements/mod.rs`, fonction `validate_bloc`).
-5. **e2e Événements incomplet** : ne teste pas le sélecteur de bloc ni le cas
-   d'erreur "sheet_id sans bloc".
-6. **Rate limiting** (specs §11.2) : toujours pas implémenté. Décision prise :
+1. ~~`docker-compose.dev.yml` + bootstrap superadmin~~ — **fait** (voir plus bas).
+2. ~~`validate_sheet_id` skip silencieux sans `SyncContext`~~ — **fait**
+   (`SHEET_VALIDATION=required|skip`, voir plus bas).
+3. ~~`validate_bloc` masquait une erreur DB en "bloc inconnu" (422)~~ —
+   **fait** (voir plus bas).
+4. ~~e2e Événements incomplet (sélecteur de bloc, sheet_id sans bloc)~~ —
+   **fait** (voir plus bas).
+5. **Rate limiting** (specs §11.2) : toujours pas implémenté. Décision prise :
    stocké en DB (pas Redis/Memcached), mais aucune table ni code pour l'instant.
    Point en suspens signalé par l'advisor : quel header IP faire confiance
    derrière le reverse proxy (`X-Forwarded-For`), pas tranché.
-7. **Cookie de session** : `http_only` seulement, pas de `SameSite`/`Secure` —
-   §11.3 les requiert. À faire avec l'écran "connexion".
-8. **Écran "connexion" (login UI)** : backend OTP déjà fonctionnel
-   (`/api/auth/request-code`, `/api/auth/verify-code`, `/api/session`), mais
-   **aucune page SvelteKit `/connexion` n'existe**. `frontend/src/lib/api.ts`
-   redirige déjà vers `/connexion` sur 401 (route qui n'existe pas encore →
-   404 actuel sur redirection).
-9. **Mapping scopé globalement** (pas par `sheet_id`) — décision actée comme
+6. **Pas de déconnexion** : ni endpoint (`DELETE`/`POST /api/auth/logout`), ni
+   bouton dans l'UI — §11.3 exige une "déconnexion manuelle disponible à tout
+   moment". Pas de barre de navigation du tout pour l'instant (aucun écran
+   n'en a une), donc pas d'endroit évident où le poser ; à faire en même temps
+   qu'une nav globale.
+7. **Pas d'expiration glissante** : `session_valid`/`AuthAdmin` (`auth.rs`)
+   lisent `expires_at` mais ne le renouvellent jamais — §11.3 dit "renouvelée
+   à chaque activité". Une session créée se rapproche de l'expiration (180j,
+   `SESSION_TTL_DAYS`) à chaque requête au lieu de rester glissante.
+8. **Mapping scopé globalement** (pas par `sheet_id`) — décision actée comme
    acceptable tant qu'un seul formulaire existe ; à revoir si un 2ème formulaire/Sheet
    apparaît un jour (cf. specs.md §3.2, "point ouvert").
-10. **Écran Commissions** (créer/éditer commissions et postes à la main) —
-    n'existe pas, le référentiel n'est modifiable que par migration SQL pour
-    l'instant.
-11. **`docs/specs.md`** : pas encore mis à jour avec le détail bloc_formulaire/
-    règle d'unicité/acceptation d'URL complète (fait dans le code, pas dans les
-    specs).
+9. **Écran Commissions** (créer/éditer commissions et postes à la main) —
+   n'existe pas, le référentiel n'est modifiable que par migration SQL pour
+   l'instant.
+10. **`/mapping` et `/evenements` ne reprennent pas la maquette** (`mockups/
+    wireframes.html`, écrans s10/s11) : seul `/connexion` (s0) a été restylé,
+    scope explicitement limité à cet écran avec l'utilisateur. Pas de
+    topbar/nav globale, pas de tokens CSS partagés entre écrans pour
+    l'instant — chaque écran restylé devra soit dupliquer soit extraire les
+    tokens (`--bg`, `--ink`, classes `.wf`/`.btn-wf`/etc.) en styles communs.
 
 ## Prochaines étapes, dans l'ordre discuté avec l'utilisateur
 
-1. `docker-compose.dev.yml` + bootstrap premier superadmin (`BOOTSTRAP_SUPERADMIN_EMAIL`
-   env var, insert idempotent au démarrage) — **bloquant pour tester quoi que ce
-   soit en dev confortablement et pour "connexion"**.
-2. Petites corrections ci-dessus (points 3, 4, 5, 11).
-3. Rate limiting (DB, décider header IP).
-4. Écran "connexion" (page SvelteKit login + cookie SameSite/Secure).
+1. ~~`docker-compose.dev.yml` + bootstrap premier superadmin~~ — fait.
+2. ~~Brancher le stub Sheets en dev~~ — fait (voir plus bas).
+3. ~~Écran "connexion" (page SvelteKit login + cookie SameSite/Secure)~~ — fait
+   (voir plus bas) ; déconnexion et expiration glissante restent (points 6, 7).
+4. ~~Petites corrections (`SHEET_VALIDATION`, `validate_bloc`, e2e
+   Événements)~~ — fait (voir plus bas).
+5. Rate limiting (DB, décider header IP).
+6. Déconnexion + expiration glissante (points 6, 7 ci-dessus).
 
 ## Commandes utiles
 
 ```bash
+# DB + mailpit + stub pour dev local (Postgres sur :5432, Mailpit UI :8025)
+docker compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml down -v   # reset complet (perd les données dev)
+
+# Lancer le backend en dev (après avoir copié .env.dev.example -> .env.dev et
+# adapté BOOTSTRAP_SUPERADMIN_EMAIL). SQLX_OFFLINE=true dans .env.dev.example
+# est nécessaire sur un volume Postgres tout neuf : les macros sqlx::query!
+# vérifient les colonnes contre une DB déjà migrée à la COMPILATION, alors
+# que les migrations ne tournent qu'au démarrage du binaire (poule/oeuf sur
+# un volume vide) ; avec SQLX_OFFLINE=true la compilation utilise le cache
+# commité backend/.sqlx/ à la place, et sqlx::migrate! (dans main.rs) migre
+# quand même la DB normalement au lancement. Sync pointe sur le stub Sheets
+# par défaut (GOOGLE_SERVICE_ACCOUNT_KEY_PATH + SHEETS_API_BASE_URL dans
+# .env.dev.example) ; n'importe quel sheet_id renvoie la fixture 2027.
+source .env.dev && cargo run --manifest-path backend/Cargo.toml
+
+# Frontend en dev (proxy /api -> :3000, cf. frontend/vite.config.ts)
+cd frontend && npm run dev   # http://localhost:5173/connexion
+
+# Lire les codes OTP envoyés en dev/e2e (Mailpit, pas une vraie boîte mail)
+# http://127.0.0.1:8025 (dev, docker-compose.dev.yml)
+# http://127.0.0.1:18025 (test/e2e, docker-compose.test.yml)
+
 # DB + mailpit + stub pour tests/e2e
 docker compose -f docker-compose.test.yml up -d
 docker compose -f docker-compose.test.yml down -v   # reset complet
@@ -139,8 +238,13 @@ casse.
 - `backend/src/auth.rs` — OTP login + `AuthAdmin` extractor.
 - `backend/migrations/` — tout le schéma, dans l'ordre chronologique des commits.
 - `frontend/src/lib/api.ts` — wrapper fetch partagé par tous les écrans.
-- `frontend/src/routes/{mapping,evenements}/+page.svelte` — les deux écrans existants.
-- `e2e/tests/` — un spec par écran, pattern : email admin dédié par spec (évite
-  une race Mailpit "dernier message" entre specs tournant en parallèle).
+- `frontend/src/routes/{mapping,evenements,connexion}/+page.svelte` — les
+  écrans existants.
+- `e2e/tests/` — un spec par écran, pattern : email admin dédié **par test**,
+  pas seulement par spec (évite une race Mailpit "dernier message" + une race
+  sur "challenge actif le plus récent" côté `verify_code` entre tests tournant
+  en parallèle dans le même fichier — `connexion.spec.ts` en a deux).
+- `dev/` — clé de service account factice (réutilise la clé RSA de test,
+  `dev/README.md`) pour que la sync pointe sur `sheets-stub` en dev.
 - `docker-compose.test.yml` — Postgres/Mailpit/stub Sheets, utilisé par les
   tests d'intégration ET les e2e (pas un vrai environnement de dev confortable).

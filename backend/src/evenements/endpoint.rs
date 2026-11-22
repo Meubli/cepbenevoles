@@ -11,7 +11,7 @@ use crate::auth::AuthAdmin;
 use crate::AppState;
 
 use super::{
-    create_evenement, set_archive, update_evenement, EvenementInput, SaveEvenementError,
+    create_evenement, set_archive, update_evenement, BlocError, EvenementInput, SaveEvenementError,
     SetArchiveError, SheetIdError,
 };
 
@@ -79,10 +79,17 @@ fn save_error_response(err: SaveEvenementError) -> Response {
         | SaveEvenementError::SheetId(SheetIdError::NotFound)
         | SaveEvenementError::SheetId(SheetIdError::Forbidden)
         | SaveEvenementError::SheetId(SheetIdError::InvalidFormat)
-        | SaveEvenementError::Bloc(_) => unprocessable(&err),
+        | SaveEvenementError::SheetId(SheetIdError::CannotVerify)
+        | SaveEvenementError::Bloc(BlocError::Missing)
+        | SaveEvenementError::Bloc(BlocError::Unknown(_))
+        | SaveEvenementError::Bloc(BlocError::AlreadyUsed(_)) => unprocessable(&err),
         SaveEvenementError::NotFound => StatusCode::NOT_FOUND.into_response(),
         SaveEvenementError::SheetId(other) => {
             tracing::error!(error = %other, "sheet_id validation failed unexpectedly");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+        SaveEvenementError::Bloc(BlocError::Database(e)) => {
+            tracing::error!(error = %e, "bloc duplicate check query failed");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
         SaveEvenementError::Database(e) => {
@@ -97,7 +104,15 @@ pub async fn post_evenement(
     AuthAdmin(admin_id): AuthAdmin,
     Json(body): Json<EvenementBody>,
 ) -> Response {
-    match create_evenement(&state.db, state.sync.as_ref(), admin_id, body.into()).await {
+    match create_evenement(
+        &state.db,
+        state.sync.as_ref(),
+        state.sheet_validation_required,
+        admin_id,
+        body.into(),
+    )
+    .await
+    {
         Ok(id) => (StatusCode::CREATED, Json(json!({"id": id}))).into_response(),
         Err(err) => save_error_response(err),
     }
@@ -109,7 +124,16 @@ pub async fn patch_evenement(
     Path(id): Path<Uuid>,
     Json(body): Json<EvenementBody>,
 ) -> Response {
-    match update_evenement(&state.db, state.sync.as_ref(), admin_id, id, body.into()).await {
+    match update_evenement(
+        &state.db,
+        state.sync.as_ref(),
+        state.sheet_validation_required,
+        admin_id,
+        id,
+        body.into(),
+    )
+    .await
+    {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(err) => save_error_response(err),
     }

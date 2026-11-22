@@ -48,6 +48,8 @@ pub struct AppState {
     /// local dev/e2e, served over plain http — a `Secure` cookie set there
     /// would never be sent back by the browser.
     pub session_cookie_secure: bool,
+    /// See `Config::sheet_validation_required`.
+    pub sheet_validation_required: bool,
 }
 
 /// Every backend route lives under `/api` (except `/health`, an infra

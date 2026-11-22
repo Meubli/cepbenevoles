@@ -23,6 +23,10 @@ pub enum SheetIdError {
     Auth(#[from] AuthError),
     #[error("sheets error: {0}")]
     Sheets(#[from] SheetsError),
+    #[error(
+        "impossible de vérifier cette Sheet : la synchronisation Google n'est pas configurée sur ce serveur"
+    )]
+    CannotVerify,
 }
 
 /// Accepts either a bare Sheet id or a full Google Sheets URL (admins will
@@ -60,14 +64,17 @@ fn extract_sheet_id(input: &str) -> Result<String, SheetIdError> {
 /// Validates a `sheet_id` against the real Google Sheets API before an
 /// `Evenement` is saved with it (specs.md §3.3). An empty `sheet_id` is
 /// always accepted without a network call (field is optional). When no
-/// `SyncContext` is configured (local dev, e2e — no Google credentials),
-/// validation is skipped entirely rather than blocking event creation in
-/// every environment that lacks real Google credentials. Returns the
-/// normalized (bare-id) form on success, since the input may have been a
-/// full URL.
+/// `SyncContext` is configured (local dev, e2e — no Google credentials):
+/// with `required` (the default, `SHEET_VALIDATION=required`), the save
+/// fails with [`SheetIdError::CannotVerify`] rather than silently accepting
+/// an unverifiable `sheet_id`; with `required = false`
+/// (`SHEET_VALIDATION=skip`, meant for e2e/dev only) validation is skipped
+/// and the id is accepted as-is. Returns the normalized (bare-id) form on
+/// success, since the input may have been a full URL.
 pub async fn validate_sheet_id(
     sync: Option<&SyncContext>,
     sheet_id: &str,
+    required: bool,
 ) -> Result<Option<String>, SheetIdError> {
     if sheet_id.is_empty() {
         return Ok(None);
@@ -75,7 +82,12 @@ pub async fn validate_sheet_id(
     let id = extract_sheet_id(sheet_id)?;
 
     let Some(sync) = sync else {
-        tracing::warn!("sheet_id validation skipped: no SyncContext configured");
+        if required {
+            return Err(SheetIdError::CannotVerify);
+        }
+        tracing::warn!(
+            "sheet_id validation skipped: no SyncContext configured (SHEET_VALIDATION=skip)"
+        );
         return Ok(Some(id));
     };
 
@@ -109,6 +121,8 @@ pub enum BlocError {
     Unknown(String),
     #[error("ce bloc est déjà utilisé par l'événement \"{0}\" sur cette même Sheet")]
     AlreadyUsed(String),
+    #[error("database error: {0}")]
+    Database(#[from] sqlx::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -157,15 +171,7 @@ async fn validate_bloc(
     .bind(bloc)
     .bind(exclude_id)
     .fetch_optional(pool)
-    .await
-    .map_err(|e| {
-        // validate_bloc deliberately doesn't carry a Database variant of its
-        // own — surfacing a query failure as "already used" would be
-        // misleading, so this path is only reachable on a real DB outage,
-        // logged by the caller via SaveEvenementError::Database instead.
-        tracing::error!(error = %e, "bloc duplicate check query failed");
-        BlocError::Unknown(bloc.to_string())
-    })?;
+    .await?;
 
     if let Some(nom) = other_nom {
         return Err(BlocError::AlreadyUsed(nom));
@@ -176,6 +182,7 @@ async fn validate_bloc(
 pub async fn create_evenement(
     pool: &sqlx::PgPool,
     sync: Option<&SyncContext>,
+    sheet_validation_required: bool,
     admin_id: Uuid,
     input: EvenementInput,
 ) -> Result<Uuid, SaveEvenementError> {
@@ -185,7 +192,12 @@ pub async fn create_evenement(
     if input.date_fin < input.date_debut {
         return Err(SaveEvenementError::InvalidDates);
     }
-    let sheet_id = validate_sheet_id(sync, input.sheet_id.as_deref().unwrap_or("")).await?;
+    let sheet_id = validate_sheet_id(
+        sync,
+        input.sheet_id.as_deref().unwrap_or(""),
+        sheet_validation_required,
+    )
+    .await?;
     validate_bloc(
         pool,
         sheet_id.as_deref(),
@@ -216,6 +228,7 @@ pub async fn create_evenement(
 pub async fn update_evenement(
     pool: &sqlx::PgPool,
     sync: Option<&SyncContext>,
+    sheet_validation_required: bool,
     admin_id: Uuid,
     id: Uuid,
     input: EvenementInput,
@@ -226,7 +239,12 @@ pub async fn update_evenement(
     if input.date_fin < input.date_debut {
         return Err(SaveEvenementError::InvalidDates);
     }
-    let sheet_id = validate_sheet_id(sync, input.sheet_id.as_deref().unwrap_or("")).await?;
+    let sheet_id = validate_sheet_id(
+        sync,
+        input.sheet_id.as_deref().unwrap_or(""),
+        sheet_validation_required,
+    )
+    .await?;
     validate_bloc(
         pool,
         sheet_id.as_deref(),

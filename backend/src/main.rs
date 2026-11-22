@@ -54,6 +54,7 @@ async fn main() {
         smtp_from: config.smtp_from,
         sync,
         session_cookie_secure: config.session_cookie_secure,
+        sheet_validation_required: config.sheet_validation_required,
     };
     let router = app(state, config.static_dir.as_deref());
 
