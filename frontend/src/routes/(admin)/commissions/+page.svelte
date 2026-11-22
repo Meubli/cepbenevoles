@@ -206,6 +206,105 @@
 {#if loading}
 	<p>Chargement…</p>
 {:else}
+	{#if creating}
+		<div style="margin-bottom:22px; padding-bottom:16px; border-bottom:1px solid var(--line)">
+			<h3>Nouvelle commission</h3>
+			<div class="field-grid">
+				<div class="field wf">
+					<label>
+						Nom
+						<input class="input-wf" bind:value={createForm.nom} required />
+					</label>
+				</div>
+				<div class="field wf">
+					<label>
+						Prérequis (texte libre)
+						<input class="input-wf" bind:value={createForm.prerequis_libre_texte} />
+					</label>
+				</div>
+				<div class="field wf">
+					<span class="wf-label">Grille de créneaux</span>
+					<div class="btn-group">
+						<button
+							class="btn-wf"
+							class:primary={createForm.grille_creneaux === 'generale'}
+							onclick={() => (createForm.grille_creneaux = 'generale')}
+						>
+							Générale
+						</button>
+						<button
+							class="btn-wf"
+							class:primary={createForm.grille_creneaux === 'propre'}
+							onclick={() => (createForm.grille_creneaux = 'propre')}
+						>
+							Propre
+						</button>
+					</div>
+				</div>
+				<div class="field wf">
+					<span class="wf-label">A des postes</span>
+					<div class="btn-group">
+						<button
+							class="btn-wf"
+							class:primary={!createForm.a_des_postes}
+							onclick={() => (createForm.a_des_postes = false)}
+						>
+							Non
+						</button>
+						<button
+							class="btn-wf"
+							class:primary={createForm.a_des_postes}
+							onclick={() => (createForm.a_des_postes = true)}
+						>
+							Oui
+						</button>
+					</div>
+				</div>
+				<div class="field wf">
+					<span class="wf-label">
+						Besoin chiffré <span class="optional-tag">— défaut : oui</span>
+					</span>
+					<div class="btn-group">
+						<button
+							class="btn-wf"
+							class:primary={createForm.besoin_chiffre}
+							onclick={() => (createForm.besoin_chiffre = true)}
+						>
+							Oui
+						</button>
+						<button
+							class="btn-wf"
+							class:primary={!createForm.besoin_chiffre}
+							onclick={() => (createForm.besoin_chiffre = false)}
+						>
+							Non
+						</button>
+					</div>
+				</div>
+				<div class="field wf">
+					<span class="wf-label">
+						Couleur <span class="optional-tag">— tirée au hasard, modifiable dès maintenant</span>
+					</span>
+					<div class="toolbar-row" style="margin:4px 0 0">
+						<span
+							class="color-swatch"
+							style="background:{createForm.couleur}; width:22px; height:22px"
+						></span>
+						<button class="btn-wf" onclick={() => (createForm.couleur = randomColor())}>
+							Changer
+						</button>
+					</div>
+				</div>
+			</div>
+			<button class="btn-wf primary" style="margin-top:14px" onclick={createCommission}>
+				Créer la commission
+			</button>
+			<button class="btn-wf" style="margin-top:14px" onclick={() => (creating = false)}>
+				Annuler
+			</button>
+		</div>
+	{/if}
+
 	{#each visibleCommissions() as c (c.id)}
 		<div class="comm-row" data-testid="commission-row">
 			<div class="comm-main">
@@ -374,103 +473,4 @@
 			</div>
 		{/if}
 	{/each}
-
-	{#if creating}
-		<div style="margin-top:22px; padding-top:16px; border-top:1px solid var(--line)">
-			<h3>Nouvelle commission</h3>
-			<div class="field-grid">
-				<div class="field wf">
-					<label>
-						Nom
-						<input class="input-wf" bind:value={createForm.nom} required />
-					</label>
-				</div>
-				<div class="field wf">
-					<label>
-						Prérequis (texte libre)
-						<input class="input-wf" bind:value={createForm.prerequis_libre_texte} />
-					</label>
-				</div>
-				<div class="field wf">
-					<span class="wf-label">Grille de créneaux</span>
-					<div class="btn-group">
-						<button
-							class="btn-wf"
-							class:primary={createForm.grille_creneaux === 'generale'}
-							onclick={() => (createForm.grille_creneaux = 'generale')}
-						>
-							Générale
-						</button>
-						<button
-							class="btn-wf"
-							class:primary={createForm.grille_creneaux === 'propre'}
-							onclick={() => (createForm.grille_creneaux = 'propre')}
-						>
-							Propre
-						</button>
-					</div>
-				</div>
-				<div class="field wf">
-					<span class="wf-label">A des postes</span>
-					<div class="btn-group">
-						<button
-							class="btn-wf"
-							class:primary={!createForm.a_des_postes}
-							onclick={() => (createForm.a_des_postes = false)}
-						>
-							Non
-						</button>
-						<button
-							class="btn-wf"
-							class:primary={createForm.a_des_postes}
-							onclick={() => (createForm.a_des_postes = true)}
-						>
-							Oui
-						</button>
-					</div>
-				</div>
-				<div class="field wf">
-					<span class="wf-label">
-						Besoin chiffré <span class="optional-tag">— défaut : oui</span>
-					</span>
-					<div class="btn-group">
-						<button
-							class="btn-wf"
-							class:primary={createForm.besoin_chiffre}
-							onclick={() => (createForm.besoin_chiffre = true)}
-						>
-							Oui
-						</button>
-						<button
-							class="btn-wf"
-							class:primary={!createForm.besoin_chiffre}
-							onclick={() => (createForm.besoin_chiffre = false)}
-						>
-							Non
-						</button>
-					</div>
-				</div>
-				<div class="field wf">
-					<span class="wf-label">
-						Couleur <span class="optional-tag">— tirée au hasard, modifiable dès maintenant</span>
-					</span>
-					<div class="toolbar-row" style="margin:4px 0 0">
-						<span
-							class="color-swatch"
-							style="background:{createForm.couleur}; width:22px; height:22px"
-						></span>
-						<button class="btn-wf" onclick={() => (createForm.couleur = randomColor())}>
-							Changer
-						</button>
-					</div>
-				</div>
-			</div>
-			<button class="btn-wf primary" style="margin-top:14px" onclick={createCommission}>
-				Créer la commission
-			</button>
-			<button class="btn-wf" style="margin-top:14px" onclick={() => (creating = false)}>
-				Annuler
-			</button>
-		</div>
-	{/if}
 {/if}
