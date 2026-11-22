@@ -9,13 +9,14 @@
 	// from the nav — a preview of the final shape, not a lie about what
 	// works today.
 	const beforeEvenements = ['Besoins', 'Créneaux', 'Commissions'];
-	const betweenEvenementsAndMapping = ['Bénévoles', 'Synchro form'];
+	const betweenEvenementsAndMapping = ['Bénévoles'];
 	const betweenMappingAndAdmins = ['Générer planning'];
 	const afterAdmins = ['Responsables'];
 
 	const evenementsHref = resolve('/(admin)/evenements');
 	const mappingHref = resolve('/(admin)/mapping');
 	const adminsHref = resolve('/(admin)/admins');
+	const synchroHref = resolve('/(admin)/synchro');
 </script>
 
 <nav class="admin-nav wf" aria-label="Navigation admin">
@@ -28,6 +29,9 @@
 	{#each betweenEvenementsAndMapping as label (label)}
 		<span class="admin-nav-item disabled" aria-disabled="true">{label}</span>
 	{/each}
+	<a class="admin-nav-item" class:sel={page.url.pathname === synchroHref} href={synchroHref}>
+		Synchro form
+	</a>
 	<a class="admin-nav-item" class:sel={page.url.pathname === mappingHref} href={mappingHref}>
 		Mapping form
 	</a>

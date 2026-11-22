@@ -155,3 +155,58 @@ async fn trigger_sync_runs_and_returns_a_summary() {
     assert_eq!(json["sheets"][0]["sheet_id"], "a-sheet");
     assert_eq!(json["sheets"][0]["status"], "ok");
 }
+
+#[tokio::test]
+async fn sync_status_requires_a_session() {
+    let pool = spawn_test_db().await;
+    let state = base_state(pool, None);
+    let router = app(state, None);
+
+    let response = router
+        .oneshot(
+            Request::get("/api/sync/status")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn sync_status_lists_configured_sheets_with_their_last_run() {
+    let pool = spawn_test_db().await;
+    let token = insert_session(&pool).await;
+
+    sqlx::query(
+        "INSERT INTO evenement (nom, date_debut, date_fin, sheet_id, bloc_formulaire) \
+         VALUES ('Indiv', '2027-01-01', '2027-01-02', 'a-sheet', 'form_2027_indiv')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let state = base_state(pool, None);
+    let router = app(state, None);
+
+    let response = router
+        .oneshot(
+            Request::get("/api/sync/status")
+                .header("cookie", format!("session_id={token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json[0]["sheet_id"], "a-sheet");
+    assert_eq!(json[0]["event_names"], "Indiv");
+    assert_eq!(json[0]["soumission_count"], 0);
+    assert!(json[0]["last_started_at"].is_null());
+}

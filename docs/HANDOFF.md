@@ -1,6 +1,6 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-22. Dernier commit : `ec34e8f`.
+Dernière mise à jour : 2026-11-22. Dernier commit : voir `git log -1`.
 
 ## État général
 
@@ -270,11 +270,62 @@ déjà couvert fonctionnellement par les tests existants).
     commission colorés par couleur propre (couleur pas encore renvoyée par
     l'API, cf. "Fait" ci-dessus).
 
-Toutes les pages existantes (connexion, événements, mapping, admins) sont
-restylées sur la maquette. Reste, côté maquette : les écrans qui
-n'existent pas encore dans l'appli du tout (Besoins, Créneaux,
-Commissions, Bénévoles, Synchro form, Générer planning, Responsables) —
-pas un restyle, une construction d'écran complète, hors scope ici.
+Toutes les pages existantes (connexion, événements, mapping, admins,
+synchro) sont restylées sur la maquette. Reste, côté maquette : les écrans
+qui n'existent pas encore dans l'appli du tout (Besoins, Créneaux,
+Commissions, Bénévoles, Générer planning, Responsables) — pas un restyle,
+une construction d'écran complète, hors scope ici.
+
+- **Écran "Synchro form"** (specs.md §7.3, wireframe s6, `/synchro`) :
+  périmètre volontairement réduit par rapport à la maquette complète
+  — décidé avec l'utilisateur plutôt que de construire doublons/permis
+  B/envoi email d'un coup (aucune détection de doublon, aucun envoi email
+  n'existe encore côté backend).
+  - **Nouveau** `GET /api/sync/status` (`backend/src/sync/endpoint.rs`) :
+    une ligne par `sheet_id` distinct utilisé par un événement actif (CTE
+    SQL : événements/noms groupés par sheet, compteur de soumissions par
+    sheet, dernier `sync_run` par sheet via `DISTINCT ON`). Un sheet
+    jamais synchronisé apparaît quand même, tous les `last_*` à null.
+  - UI (`(admin)/synchro/+page.svelte`) : un bloc par Sheet (compteur de
+    soumissions, +N depuis la dernière synchro, date de dernière synchro,
+    erreur de dernière synchro le cas échéant) + bouton global
+    "Synchroniser maintenant" (`POST /api/sync`, existant — synchronise
+    toutes les Sheets configurées d'un coup, pas par Sheet contrairement à
+    la maquette qui a un bouton par ligne) + bloc compteur de libellés non
+    mappés avec lien vers `/mapping` (réutilise `GET /api/mapping` déjà
+    existant, pas de nouvel endpoint pour ce compteur). Classes CSS
+    `.sync-status`/`.stat-wf`/`.stat-num`/`.stat-lbl` portées de la
+    maquette dans `admin.css` (n'existaient pas encore). `AdminNav`:
+    "Synchro form" devient un vrai lien (resolve `/(admin)/synchro`),
+    retiré de la liste des entrées désactivées.
+  - Testé : 2 tests Rust (`backend/tests/sync_endpoint.rs` — session
+    requise, liste une Sheet configurée avec son dernier run) + vérifié à
+    la main dans le navigateur (événement existant pointé vers la Sheet
+    stub, synchro déclenchée depuis l'écran, compteurs mis à jour, lien
+    vers Mapping suivi). Pas de test e2e Playwright dédié pour ce lot.
+  - **Non fait** (hors scope choisi pour ce lot) : détection de doublons
+    potentiels, avertissement "Transport sans permis B", envoi des
+    plannings par email — les trois blocs du bas de la maquette s6.
+
+- **Logs de debug** (demandé par l'utilisateur, pas lié à un écran) :
+  - `tracing_subscriber` initialisé avec un `EnvFilter` par défaut
+    `benefrance_backend=debug,tower_http=debug,info` (`backend/src/main.rs`)
+    au lieu d'aucun filtre — `RUST_LOG`, s'il est positionné, prend
+    toujours le dessus.
+  - `TraceLayer::new_for_http()` ajouté au routeur (`backend/src/lib.rs`),
+    imbriqué **dans** le span `correlation_id` (ordre des `.layer()`
+    volontaire — sinon les logs de `TraceLayer` n'auraient pas porté le
+    `correlation_id`) : log debug méthode/URI/statut/latence par requête,
+    gratuit, sans toucher aux handlers.
+  - Quelques `tracing::debug!` ciblés ajoutés à la main sur les chemins
+    chauds : sync (`orchestrate.rs` — compte de sheets, lignes fetchées,
+    parsées, par sheet ; `main.rs` — tick du scheduler) et auth
+    (`auth.rs` — email connu/inconnu sur `request_code`, raison d'un 401
+    sur `verify_code`, session créée, cookie absent/invalide sur
+    `renew_session`). Pas un log par ligne de code — ciblé sur les points
+    où "pourquoi ça n'a pas marché" se pose en pratique.
+  - `tracing-subscriber` gagne la feature `env-filter` (`backend/Cargo.toml`,
+    répercuté sur `Cargo.lock`) — nécessaire pour `EnvFilter`.
 
 ## Prochaines étapes, dans l'ordre discuté avec l'utilisateur
 
@@ -287,7 +338,10 @@ pas un restyle, une construction d'écran complète, hors scope ici.
 5. ~~Restyle écrans Événements + Mapping (+ shell admin partagé)~~ — fait
    (voir plus bas).
 6. ~~Déconnexion + expiration glissante~~ — fait (voir plus bas).
-7. Rate limiting (DB, décider header IP) — seul point ouvert restant de
+7. ~~Écran "Synchro form" (périmètre réduit, cf. "Fait")~~ — fait (voir
+   plus bas). Doublons/permis B/envoi email restent à construire, pas
+   décidé quand.
+8. Rate limiting (DB, décider header IP) — seul point ouvert restant de
    cette liste.
 
 ## Commandes utiles
@@ -355,7 +409,9 @@ casse.
 ## Fichiers clé pour s'orienter vite
 
 - `backend/src/lib.rs` — assemblage du routeur, `AppState`, `SyncContext`.
-- `backend/src/sync/` — parsing form + orchestration + persistance.
+- `backend/src/sync/` — parsing form + orchestration + persistance +
+  `endpoint.rs` (`POST /sync` déclenchement manuel, `GET /sync/status`
+  écran Synchro).
 - `backend/src/mapping/` — résolution souhaits + écran Mapping.
 - `backend/src/evenements/` — CRUD Événements.
 - `backend/src/auth.rs` — OTP login + `AuthAdmin` extractor.

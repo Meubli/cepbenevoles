@@ -127,6 +127,25 @@
 	letter-spacing: 0.03em;
 	text-transform: uppercase;
 }
+.sync-status {
+	display: flex;
+	gap: 20px;
+	flex-wrap: wrap;
+	margin: 14px 0;
+}
+.stat-wf {
+	padding: 14px 18px;
+	min-width: 140px;
+}
+.stat-num {
+	font-family: var(--font-display);
+	font-size: 22px;
+}
+.stat-lbl {
+	font-size: 11px;
+	color: var(--muted);
+	margin-top: 3px;
+}
 .optional-tag {
 	font-size: 10px;
 	color: var(--muted);
