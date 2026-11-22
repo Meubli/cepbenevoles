@@ -58,10 +58,10 @@ fn base_state(pool: PgPool, sync: Option<SyncContext>) -> AppState {
 async fn trigger_sync_requires_a_session() {
     let pool = spawn_test_db().await;
     let state = base_state(pool, None);
-    let router = app(state);
+    let router = app(state, None);
 
     let response = router
-        .oneshot(Request::post("/admin/sync").body(Body::empty()).unwrap())
+        .oneshot(Request::post("/api/sync").body(Body::empty()).unwrap())
         .await
         .unwrap();
 
@@ -73,11 +73,11 @@ async fn trigger_sync_without_configured_context_returns_503() {
     let pool = spawn_test_db().await;
     let token = insert_session(&pool).await;
     let state = base_state(pool, None);
-    let router = app(state);
+    let router = app(state, None);
 
     let response = router
         .oneshot(
-            Request::post("/admin/sync")
+            Request::post("/api/sync")
                 .header("cookie", format!("session_id={token}"))
                 .body(Body::empty())
                 .unwrap(),
@@ -133,11 +133,11 @@ async fn trigger_sync_runs_and_returns_a_summary() {
     };
 
     let state = base_state(pool, Some(sync));
-    let router = app(state);
+    let router = app(state, None);
 
     let response = router
         .oneshot(
-            Request::post("/admin/sync")
+            Request::post("/api/sync")
                 .header("cookie", format!("session_id={token}"))
                 .body(Body::empty())
                 .unwrap(),

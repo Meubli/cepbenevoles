@@ -14,6 +14,7 @@ use axum::Router;
 use sqlx::PgPool;
 use tokio::sync::Mutex;
 use tower_cookies::CookieManagerLayer;
+use tower_http::services::{ServeDir, ServeFile};
 
 use google_auth::GoogleAuth;
 use sheets::SheetsClient;
@@ -43,14 +44,33 @@ pub struct AppState {
     pub sync: Option<SyncContext>,
 }
 
-pub fn app(state: AppState) -> Router {
+/// Every backend route lives under `/api` (except `/health`, an infra
+/// probe path, not a page) so a SPA page and an API route never collide —
+/// e.g. the future `/mapping` page vs an API route of the same name.
+fn api_router() -> Router<AppState> {
     Router::new()
-        .route("/health", get(health::health))
         .route("/auth/request-code", post(auth::request_code))
         .route("/auth/verify-code", post(auth::verify_code))
-        .route("/admin", get(auth::require_session))
-        .route("/admin/sync", post(sync::endpoint::trigger_sync))
+        .route("/session", get(auth::require_session))
+        .route("/sync", post(sync::endpoint::trigger_sync))
+}
+
+/// `static_dir` is the built SvelteKit SPA (technical-specs.md §3); absent
+/// in local dev, where `vite dev` serves the frontend separately and
+/// proxies `/api` to this backend.
+pub fn app(state: AppState, static_dir: Option<&str>) -> Router {
+    let mut router = Router::new()
+        .route("/health", get(health::health))
+        .nest("/api", api_router())
         .layer(CookieManagerLayer::new())
         .layer(middleware::from_fn(correlation::correlation_id))
-        .with_state(state)
+        .with_state(state);
+
+    if let Some(dir) = static_dir {
+        let index = format!("{dir}/index.html");
+        let serve_dir = ServeDir::new(dir).not_found_service(ServeFile::new(index));
+        router = router.fallback_service(serve_dir);
+    }
+
+    router
 }

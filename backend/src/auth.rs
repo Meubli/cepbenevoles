@@ -4,7 +4,9 @@
 //! not the finished auth feature.
 
 use crate::AppState;
-use axum::extract::State;
+use axum::async_trait;
+use axum::extract::{FromRequestParts, State};
+use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::Json;
 use chrono::{Duration, Utc};
@@ -15,6 +17,7 @@ use rand::Rng;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tower_cookies::{Cookie, Cookies};
+use uuid::Uuid;
 
 const SESSION_COOKIE: &str = "session_id";
 const CODE_TTL_MINUTES: i64 = 10;
@@ -194,12 +197,47 @@ pub async fn session_valid(state: &AppState, cookies: &Cookies) -> bool {
     matches!(session, Some(session) if session.expires_at > Utc::now())
 }
 
-/// Stub protected route: 200 with a valid, unexpired session cookie, 401
-/// otherwise. Stands in for the real admin screens (specs §7.3).
+/// Session-check route the frontend polls on load to know whether to show
+/// the login screen or an admin screen (wireframe s0 vs the rest).
 pub async fn require_session(State(state): State<AppState>, cookies: Cookies) -> StatusCode {
     if session_valid(&state, &cookies).await {
         StatusCode::OK
     } else {
         StatusCode::UNAUTHORIZED
+    }
+}
+
+/// Extracts the authenticated admin's id, rejecting with 401 otherwise.
+/// Handlers that need to stamp `created_by`/`updated_by` (specs.md §8) take
+/// this instead of re-checking the cookie themselves.
+pub struct AuthAdmin(pub Uuid);
+
+#[async_trait]
+impl FromRequestParts<AppState> for AuthAdmin {
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let cookies = Cookies::from_request_parts(parts, state)
+            .await
+            .map_err(|_| StatusCode::UNAUTHORIZED)?;
+        let cookie = cookies
+            .get(SESSION_COOKIE)
+            .ok_or(StatusCode::UNAUTHORIZED)?;
+
+        let row = sqlx::query!(
+            "SELECT admin_id, expires_at FROM sessions WHERE token_hash = $1",
+            hash(cookie.value())
+        )
+        .fetch_optional(&state.db)
+        .await
+        .expect("db query failed");
+
+        match row {
+            Some(row) if row.expires_at > Utc::now() => Ok(AuthAdmin(row.admin_id)),
+            _ => Err(StatusCode::UNAUTHORIZED),
+        }
     }
 }

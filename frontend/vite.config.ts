@@ -12,5 +12,12 @@ export default defineConfig({
 			},
 			adapter: adapter({ fallback: 'index.html' })
 		})
-	]
+	],
+	server: {
+		// Local dev only — in prod the same Axum binary serves both (cf.
+		// docs/technical-specs.md §3), no proxy involved.
+		proxy: {
+			'/api': 'http://127.0.0.1:3000'
+		}
+	}
 });

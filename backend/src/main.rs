@@ -51,7 +51,7 @@ async fn main() {
         smtp_from: config.smtp_from,
         sync,
     };
-    let router = app(state);
+    let router = app(state, config.static_dir.as_deref());
 
     let listener = tokio::net::TcpListener::bind(&config.listen_addr)
         .await

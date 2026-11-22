@@ -15,6 +15,10 @@ pub struct Config {
     /// min"). 0 disables the periodic scheduler even if a key is
     /// configured — manual sync still works.
     pub sync_interval_seconds: u64,
+    /// Directory holding the built SvelteKit SPA (set by the Dockerfile,
+    /// technical-specs.md §3). Absent in local dev, where the frontend is
+    /// served separately by `vite dev` (proxying `/api` to this backend).
+    pub static_dir: Option<String>,
 }
 
 impl Config {
@@ -37,6 +41,7 @@ impl Config {
                 .unwrap_or_else(|_| "600".to_string())
                 .parse()
                 .expect("SYNC_INTERVAL_SECONDS must be a non-negative integer"),
+            static_dir: std::env::var("STATIC_DIR").ok(),
         }
     }
 }
