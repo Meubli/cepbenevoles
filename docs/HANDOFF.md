@@ -1,6 +1,6 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-23. Dernier commit : `b4286b4`.
+Dernière mise à jour : 2026-11-23. Dernier commit : `bbcb4b9`.
 
 ## État général
 
@@ -428,6 +428,35 @@ déjà couvert fonctionnellement par les tests existants).
     porte aucune donnée) ; configuration du reverse proxy pour transmettre
     l'en-tête `Upgrade` en prod — jamais vérifiée ici, à faire avant un
     vrai déploiement derrière un reverse proxy.
+
+- **Bug trouvé en live par l'utilisateur** : un nom de commission très long
+  (chaîne continue, sans espace) cassait la mise en page de l'écran
+  Commissions — débordait de `.comm-row` au lieu de passer à la ligne,
+  chevauchant le bouton "Modifier". Même risque sur Admins/Événements
+  (classes `.comm-row`/`.comm-main` partagées) et sur les titres "Modifier
+  — commission …"/"Nouvelle commission" (`<h3>` sans contrainte de
+  largeur).
+  - **Corrigé des deux côtés** :
+    - CSS (`admin.css`) : `overflow-wrap: anywhere` sur `.comm-main` et sur
+      `.admin-shell h3` — un mot sans espace passe désormais à la ligne au
+      lieu de déborder.
+    - **Limites de longueur ajoutées au back** (nouvelles constantes
+      publiques `NOM_MAX_LEN`/`PREREQUIS_MAX_LEN`/`LIEU_MAX_LEN`/
+      `EMAIL_MAX_LEN`, un nouveau variant d'erreur par champ, 422 comme les
+      autres validations) : `Commission.nom` 100, `prerequis_libre_texte`
+      500, `Poste.nom` 100 (`backend/src/commissions/mod.rs`) ;
+      `Evenement.nom`/`lieu` 200 (`backend/src/evenements/mod.rs`) ;
+      `Admin.nom`/`prenom` 100, `email` 255 (`backend/src/admins/mod.rs`).
+      La CSS seule aurait suffi pour l'affichage, mais la limite doit
+      exister côté serveur (pas que `maxlength` HTML, contournable) —
+      demandé explicitement par l'utilisateur ("dans le back").
+    - `maxlength` HTML ajouté aux champs correspondants (Commissions,
+      Admins, Événements) — confort UI, la vraie limite reste le 422
+      serveur.
+  - Testé : 6 nouveaux tests Rust (3 dans `commissions_endpoint.rs` — nom/
+    prérequis/poste trop longs —, 1 dans `admins_endpoint.rs`, 2 dans
+    `evenements.rs`) + vérifié dans le navigateur (le nom très long déjà
+    créé par l'utilisateur passe maintenant à la ligne proprement).
 
 ## Pas fait / connu cassé ou absent
 
