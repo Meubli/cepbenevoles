@@ -39,4 +39,18 @@ async fn real_token_and_fetch_against_live_sheet() {
     // never printed here.
     println!("rows (incl. header): {}", values.len());
     assert!(!values.is_empty(), "expected at least the header row");
+
+    // check_access is what Événements creation actually calls (specs.md
+    // §3.3) — wiremock proves the request shape, this proves Google really
+    // answers 200 for a Sheet this service account can read.
+    sheets
+        .check_access(&token, &sheet_id)
+        .await
+        .expect("check_access against the real, shared Sheet should succeed");
+
+    let err = sheets
+        .check_access(&token, "this-id-does-not-exist-00000")
+        .await
+        .expect_err("a bogus id must not be reported as accessible");
+    println!("bogus id correctly rejected as: {err}");
 }

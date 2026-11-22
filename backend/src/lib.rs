@@ -72,6 +72,10 @@ fn api_router() -> Router<AppState> {
             "/evenements/:id/archive",
             patch(evenements::endpoint::patch_archive),
         )
+        .route(
+            "/blocs-formulaire",
+            get(evenements::endpoint::list_blocs_formulaire),
+        )
         // Without this, an unmatched /api/* path falls through to the SPA
         // fallback below and gets served index.html as if it were a page —
         // api.ts would then try to JSON-parse an HTML body.

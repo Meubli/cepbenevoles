@@ -73,6 +73,34 @@ impl SheetsClient {
             }
         }
     }
+
+    /// Checks a spreadsheet exists and is reachable, without fetching any
+    /// row data — used to validate an `Evenement.sheet_id` at save time
+    /// (specs.md §3.3). Distinct from [`Self::fetch_values`]: no tab name
+    /// is needed, and Google answers this one from metadata alone.
+    pub async fn check_access(
+        &self,
+        access_token: &str,
+        spreadsheet_id: &str,
+    ) -> Result<(), SheetsError> {
+        let mut url = reqwest::Url::parse(&self.base_url)
+            .expect("configured base_url must be a valid URL")
+            .join(&format!("v4/spreadsheets/{spreadsheet_id}"))
+            .expect("spreadsheet_id must be URL-safe");
+        url.query_pairs_mut().append_pair("fields", "spreadsheetId");
+
+        let resp = self.http.get(url).bearer_auth(access_token).send().await?;
+
+        match resp.status() {
+            StatusCode::OK => Ok(()),
+            StatusCode::NOT_FOUND => Err(SheetsError::NotFound),
+            StatusCode::FORBIDDEN => Err(SheetsError::Forbidden),
+            other => {
+                let body = resp.text().await.unwrap_or_default();
+                Err(SheetsError::UnexpectedStatus(other, body))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -143,5 +171,40 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(err, SheetsError::Forbidden));
+    }
+
+    #[tokio::test]
+    async fn check_access_hits_the_metadata_endpoint_not_a_values_range() {
+        let mock_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "spreadsheetId": "fake-sheet-id"
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let client = SheetsClient::new(mock_server.uri());
+        client
+            .check_access("fake-token", "fake-sheet-id")
+            .await
+            .expect("check_access should succeed");
+
+        let requests = mock_server.received_requests().await.unwrap();
+        assert_eq!(requests[0].url.path(), "/v4/spreadsheets/fake-sheet-id");
+        assert!(requests[0].url.query().unwrap_or("").contains("fields=spreadsheetId"));
+    }
+
+    #[tokio::test]
+    async fn check_access_not_found_vs_forbidden() {
+        let mock_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&mock_server)
+            .await;
+        let client = SheetsClient::new(mock_server.uri());
+        assert!(matches!(
+            client.check_access("fake-token", "missing").await.unwrap_err(),
+            SheetsError::NotFound
+        ));
     }
 }

@@ -52,6 +52,17 @@ pub fn bloc_to_slug(bloc: &str) -> Option<EventSlug> {
     }
 }
 
+/// (value, human label) pairs for every bloc this parser knows how to
+/// read — the single source of truth [`bloc_to_slug`] also matches against,
+/// so the Événements screen's bloc picker (specs.md §3.3) can never offer a
+/// choice `bloc_to_slug` would then reject.
+pub fn known_blocs() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("form_2027_indiv", "France Indiv Perf GAM/GAF"),
+        ("form_2027_teamgym", "France TeamGym Performance"),
+    ]
+}
+
 /// One form day column: its header text, the day-name prefix to strip from
 /// each checkbox token (e.g. "Jeudi matin" -> "matin"), and the real
 /// calendar date it corresponds to.

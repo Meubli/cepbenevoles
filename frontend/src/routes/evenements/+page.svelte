@@ -26,7 +26,10 @@
 		return { nom: '', date_debut: '', date_fin: '', lieu: '', sheet_id: '', bloc_formulaire: '' };
 	}
 
+	type Bloc = { value: string; label: string };
+
 	let events = $state<Evenement[]>([]);
+	let blocs = $state<Bloc[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -40,7 +43,10 @@
 		loading = true;
 		error = null;
 		try {
-			events = await api.get<Evenement[]>('/evenements');
+			[events, blocs] = await Promise.all([
+				api.get<Evenement[]>('/evenements'),
+				api.get<Bloc[]>('/blocs-formulaire')
+			]);
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
 		} finally {
@@ -115,6 +121,10 @@
 
 	async function createEvent() {
 		error = null;
+		if (!createForm.nom.trim() || !createForm.date_debut || !createForm.date_fin) {
+			error = 'Nom, date début et date fin sont obligatoires.';
+			return;
+		}
 		try {
 			await api.post('/evenements', toBody(createForm));
 			creating = false;
@@ -163,6 +173,14 @@
 						<td>{e.archive ? 'archivé' : 'actif'}</td>
 						<td>
 							<input bind:value={editForm.sheet_id} list="sheet-id-suggestions" />
+							{#if editForm.sheet_id}
+								<select bind:value={editForm.bloc_formulaire}>
+									<option value="">— bloc du formulaire —</option>
+									{#each blocs as b (b.value)}
+										<option value={b.value}>{b.label}</option>
+									{/each}
+								</select>
+							{/if}
 						</td>
 						<td>
 							<button onclick={() => saveEdit(e.id)}>Enregistrer</button>
@@ -195,14 +213,25 @@
 	<div>
 		{#if creating}
 			<h3>Nouvel événement</h3>
-			<label>Nom <input bind:value={createForm.nom} /></label>
-			<label>Date début <input type="date" bind:value={createForm.date_debut} /></label>
-			<label>Date fin <input type="date" bind:value={createForm.date_fin} /></label>
+			<label>Nom <input bind:value={createForm.nom} required /></label>
+			<label>Date début <input type="date" bind:value={createForm.date_debut} required /></label>
+			<label>Date fin <input type="date" bind:value={createForm.date_fin} required /></label>
 			<label>Lieu <input bind:value={createForm.lieu} /></label>
 			<label>
 				ID Google Sheet source
 				<input bind:value={createForm.sheet_id} list="sheet-id-suggestions" />
 			</label>
+			{#if createForm.sheet_id}
+				<label>
+					Bloc du formulaire
+					<select bind:value={createForm.bloc_formulaire}>
+						<option value="">— bloc du formulaire —</option>
+						{#each blocs as b (b.value)}
+							<option value={b.value}>{b.label}</option>
+						{/each}
+					</select>
+				</label>
+			{/if}
 			<button onclick={createEvent}>Créer l'événement</button>
 			<button onclick={() => (creating = false)}>Annuler</button>
 		{:else}

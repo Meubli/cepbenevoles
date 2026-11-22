@@ -23,8 +23,11 @@ fn input(nom: &str, sheet_id: Option<&str>) -> EvenementInput {
         date_debut: chrono::NaiveDate::from_ymd_opt(2027, 1, 1).unwrap(),
         date_fin: chrono::NaiveDate::from_ymd_opt(2027, 1, 2).unwrap(),
         lieu: Some("Poitiers".to_string()),
+        // A known bloc whenever sheet_id is set, so tests that only care
+        // about sheet_id validation don't also have to think about bloc
+        // validation (covered separately below).
+        bloc_formulaire: sheet_id.map(|_| "form_2027_indiv".to_string()),
         sheet_id: sheet_id.map(str::to_string),
-        bloc_formulaire: None,
     }
 }
 
@@ -220,4 +223,111 @@ async fn update_changes_fields_and_archive_toggles_independently() {
         !archived,
         "unarchiving must be possible and leave the event editable"
     );
+}
+
+#[tokio::test]
+async fn empty_nom_is_rejected() {
+    let pool = spawn_test_db().await;
+    let admin_id = insert_admin(&pool).await;
+
+    let err = create_evenement(&pool, None, admin_id, input("   ", None))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, SaveEvenementError::EmptyNom));
+}
+
+#[tokio::test]
+async fn sheet_id_without_bloc_is_rejected() {
+    let pool = spawn_test_db().await;
+    let admin_id = insert_admin(&pool).await;
+
+    let mut bad = input("Indiv", Some("some-sheet"));
+    bad.bloc_formulaire = None;
+
+    let err = create_evenement(&pool, None, admin_id, bad).await.unwrap_err();
+    assert!(matches!(
+        err,
+        SaveEvenementError::Bloc(benefrance_backend::evenements::BlocError::Missing)
+    ));
+}
+
+#[tokio::test]
+async fn unknown_bloc_is_rejected() {
+    let pool = spawn_test_db().await;
+    let admin_id = insert_admin(&pool).await;
+
+    let mut bad = input("Indiv", Some("some-sheet"));
+    bad.bloc_formulaire = Some("form_2099_made_up".to_string());
+
+    let err = create_evenement(&pool, None, admin_id, bad).await.unwrap_err();
+    assert!(matches!(
+        err,
+        SaveEvenementError::Bloc(benefrance_backend::evenements::BlocError::Unknown(_))
+    ));
+}
+
+#[tokio::test]
+async fn two_events_cannot_claim_the_same_bloc_on_the_same_sheet() {
+    let pool = spawn_test_db().await;
+    let admin_id = insert_admin(&pool).await;
+
+    create_evenement(&pool, None, admin_id, input("Indiv 1", Some("shared-sheet")))
+        .await
+        .unwrap();
+
+    let err = create_evenement(&pool, None, admin_id, input("Indiv 2", Some("shared-sheet")))
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        SaveEvenementError::Bloc(benefrance_backend::evenements::BlocError::AlreadyUsed(_))
+    ));
+}
+
+#[tokio::test]
+async fn updating_an_unknown_id_is_not_found() {
+    let pool = spawn_test_db().await;
+    let admin_id = insert_admin(&pool).await;
+
+    let err = update_evenement(&pool, None, admin_id, Uuid::new_v4(), input("Indiv", None))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, SaveEvenementError::NotFound));
+}
+
+#[tokio::test]
+async fn archiving_an_unknown_id_is_not_found() {
+    let pool = spawn_test_db().await;
+    let admin_id = insert_admin(&pool).await;
+
+    let err = set_archive(&pool, admin_id, Uuid::new_v4(), true).await.unwrap_err();
+    assert!(matches!(
+        err,
+        benefrance_backend::evenements::SetArchiveError::NotFound
+    ));
+}
+
+#[tokio::test]
+async fn unarchiving_into_a_bloc_conflict_is_rejected() {
+    let pool = spawn_test_db().await;
+    let admin_id = insert_admin(&pool).await;
+
+    let archived_id = create_evenement(&pool, None, admin_id, input("Indiv archivé", Some("shared-sheet")))
+        .await
+        .unwrap();
+    set_archive(&pool, admin_id, archived_id, true).await.unwrap();
+
+    // A new event takes the same bloc while the first is archived — legal.
+    create_evenement(&pool, None, admin_id, input("Indiv actif", Some("shared-sheet")))
+        .await
+        .unwrap();
+
+    // Unarchiving the first must not silently recreate the conflict.
+    let err = set_archive(&pool, admin_id, archived_id, false)
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        benefrance_backend::evenements::SetArchiveError::Bloc(_)
+    ));
 }

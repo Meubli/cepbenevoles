@@ -12,7 +12,7 @@ use crate::AppState;
 
 use super::{
     create_evenement, set_archive, update_evenement, EvenementInput, SaveEvenementError,
-    SheetIdError,
+    SetArchiveError, SheetIdError,
 };
 
 #[derive(Serialize, sqlx::FromRow)]
@@ -64,19 +64,23 @@ impl From<EvenementBody> for EvenementInput {
     }
 }
 
+fn unprocessable(err: &impl ToString) -> Response {
+    (
+        StatusCode::UNPROCESSABLE_ENTITY,
+        Json(json!({"error": err.to_string()})),
+    )
+        .into_response()
+}
+
 fn save_error_response(err: SaveEvenementError) -> Response {
     match err {
-        SaveEvenementError::InvalidDates => (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(json!({"error": err.to_string()})),
-        )
-            .into_response(),
-        SaveEvenementError::SheetId(SheetIdError::NotFound)
-        | SaveEvenementError::SheetId(SheetIdError::Forbidden) => (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(json!({"error": err.to_string()})),
-        )
-            .into_response(),
+        SaveEvenementError::EmptyNom
+        | SaveEvenementError::InvalidDates
+        | SaveEvenementError::SheetId(SheetIdError::NotFound)
+        | SaveEvenementError::SheetId(SheetIdError::Forbidden)
+        | SaveEvenementError::SheetId(SheetIdError::InvalidFormat)
+        | SaveEvenementError::Bloc(_) => unprocessable(&err),
+        SaveEvenementError::NotFound => StatusCode::NOT_FOUND.into_response(),
         SaveEvenementError::SheetId(other) => {
             tracing::error!(error = %other, "sheet_id validation failed unexpectedly");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -124,9 +128,22 @@ pub async fn patch_archive(
 ) -> Response {
     match set_archive(&state.db, admin_id, id, body.archive).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
-        Err(err) => {
+        Err(SetArchiveError::NotFound) => StatusCode::NOT_FOUND.into_response(),
+        Err(err @ SetArchiveError::Bloc(_)) => unprocessable(&err),
+        Err(err @ SetArchiveError::Database(_)) => {
             tracing::error!(error = %err, "archive toggle failed");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
+}
+
+/// Blocs the current form knows how to read, for the Événements screen's
+/// bloc picker (specs.md §3.3) — the same list `bloc_to_slug` validates
+/// against, so the UI can never offer a choice the backend would reject.
+pub async fn list_blocs_formulaire(_admin: AuthAdmin) -> Json<Vec<serde_json::Value>> {
+    let blocs = crate::sync::form_2027::known_blocs()
+        .into_iter()
+        .map(|(value, label)| json!({"value": value, "label": label}))
+        .collect();
+    Json(blocs)
 }
