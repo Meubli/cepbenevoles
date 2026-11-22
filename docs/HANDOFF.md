@@ -1,17 +1,20 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-22. Dernier commit : `ef8a182`.
+Dernière mise à jour : 2026-11-22. Dernier commit : `fd409d1` (avant la
+session de déconnexion/expiration glissante ci-dessous, pas encore commitée
+à la rédaction de ce paragraphe — voir en tête de "Fait").
 
 ## État général
 
-Repo propre, tout commité (`git status` vide à la rédaction de ce fichier),
-en 5 commits séparés par lot (demandé par l'utilisateur, un par morceau de
-travail indépendant plutôt qu'un seul commit fourre-tout) :
+Repo propre entre chaque lot de travail, commits séparés par lot (demandé
+par l'utilisateur, un par morceau de travail indépendant plutôt qu'un seul
+commit fourre-tout) :
 `66ed12a` (dev compose + bootstrap), `c1f36cc` (stub Sheets), `677f2f0`
 (écran connexion + cookie SameSite/Secure), `612b957` (restyle connexion),
-`ef8a182` (`SHEET_VALIDATION` + `validate_bloc` + e2e Événements + specs).
-Chaque commit a été vérifié individuellement (build + e2e complet) avant
-le suivant. Stack :
+`ef8a182` (`SHEET_VALIDATION` + `validate_bloc` + e2e Événements + specs),
+`9ae7478` (restyle Événements + shell admin partagé), `fd409d1` (restyle
+Mapping). Chaque commit a été vérifié individuellement (build + e2e
+complet) avant le suivant. Stack :
 Rust/Axum/sqlx backend, SvelteKit SPA frontend, Postgres, tests Rust (unitaires +
 intégration testcontainers) + Playwright e2e. Voir `docs/specs.md` (fonctionnel) et
 `docs/technical-specs.md` (technique) pour les specs à jour — ce fichier ne les
@@ -146,10 +149,36 @@ duplique pas, il dit où on en est par rapport à elles.
   adapté (`<tr>` → `[data-testid="mapping-row"]`, même raison que
   Événements). Vérifié en e2e (8/8) ; vérifié dans le navigateur à vide (DB
   dev sans libellé synchronisé pour l'instant).
+- **Déconnexion manuelle + expiration glissante de session** (specs.md
+  §11.3, gaps 6/7 ci-dessous) :
+  - `POST /api/auth/logout` (`backend/src/auth.rs`) — supprime la ligne
+    `sessions` côté serveur (pas juste le cookie côté client) et vide le
+    cookie. Idempotent (pas de cookie / session déjà morte = 204 quand
+    même).
+  - `renew_session` (nouvelle fonction privée partagée par `session_valid`,
+    `require_session` et l'extractor `AuthAdmin`) : chaque requête
+    authentifiée valide ET renouvelle `expires_at`/`last_activity_at` en une
+    seule requête SQL atomique (`UPDATE ... WHERE expires_at > now()
+    RETURNING admin_id`) — une session active ne se rapproche plus jamais de
+    ses 180 jours, et le garde `WHERE expires_at > now()` empêche de
+    ressusciter une session déjà expirée.
+  - `GET /api/session` renvoie maintenant `{email, is_superadmin}` (avant :
+    juste 200/401) pour que la topbar admin affiche l'identité.
+  - Topbar ajoutée au shell admin (`(admin)/+layout.svelte`) : marque +
+    email + badge `superadmin` + bouton "Déconnexion" (mockup s0-s11,
+    `.session-box`). Clic → `POST /auth/logout` → `window.location.href =
+    '/connexion'` (rechargement complet, même convention que le reste).
+  - Testé : 5 tests Rust (`backend/tests/auth_endpoint.rs`, nouveau fichier
+    — identité renvoyée, logout détruit bien la session en base, logout
+    sans cookie ne casse rien, une session proche d'expirer est repoussée
+    de ~180j, une session déjà expirée n'est jamais ressuscitée) + 1 test
+    e2e (`e2e/tests/logout.spec.ts` — clic topbar, redirection, re-visite
+    de `/evenements` après coup redirige bien vers `/connexion`, la session
+    est bien morte côté serveur pas juste localement).
 
-Compteurs : ~70 tests Rust (unitaires + intégration, +1 depuis le dernier
-comptage pour `SHEET_VALIDATION`), 8 tests Playwright e2e, tous verts au
-dernier run.
+Compteurs : ~75 tests Rust (unitaires + intégration, +5 pour
+`auth_endpoint.rs`), 9 tests Playwright e2e (+1 pour le logout), tous
+verts au dernier run.
 
 ## Pas fait / connu cassé ou absent
 
@@ -164,15 +193,10 @@ dernier run.
    stocké en DB (pas Redis/Memcached), mais aucune table ni code pour l'instant.
    Point en suspens signalé par l'advisor : quel header IP faire confiance
    derrière le reverse proxy (`X-Forwarded-For`), pas tranché.
-6. **Pas de déconnexion** : ni endpoint (`DELETE`/`POST /api/auth/logout`), ni
-   bouton dans l'UI — §11.3 exige une "déconnexion manuelle disponible à tout
-   moment". Pas de barre de navigation du tout pour l'instant (aucun écran
-   n'en a une), donc pas d'endroit évident où le poser ; à faire en même temps
-   qu'une nav globale.
-7. **Pas d'expiration glissante** : `session_valid`/`AuthAdmin` (`auth.rs`)
-   lisent `expires_at` mais ne le renouvellent jamais — §11.3 dit "renouvelée
-   à chaque activité". Une session créée se rapproche de l'expiration (180j,
-   `SESSION_TTL_DAYS`) à chaque requête au lieu de rester glissante.
+6. ~~Pas de déconnexion~~ — **fait** (voir "Fait" : `POST /auth/logout` +
+   bouton topbar du shell admin).
+7. ~~Pas d'expiration glissante~~ — **fait** (voir "Fait" : `renew_session`,
+   partagée par `session_valid`/`require_session`/`AuthAdmin`).
 8. **Mapping scopé globalement** (pas par `sheet_id`) — décision actée comme
    acceptable tant qu'un seul formulaire existe ; à revoir si un 2ème formulaire/Sheet
    apparaît un jour (cf. specs.md §3.2, "point ouvert").
@@ -197,13 +221,14 @@ hors scope ici.
 1. ~~`docker-compose.dev.yml` + bootstrap premier superadmin~~ — fait.
 2. ~~Brancher le stub Sheets en dev~~ — fait (voir plus bas).
 3. ~~Écran "connexion" (page SvelteKit login + cookie SameSite/Secure)~~ — fait
-   (voir plus bas) ; déconnexion et expiration glissante restent (points 6, 7).
+   (voir plus bas).
 4. ~~Petites corrections (`SHEET_VALIDATION`, `validate_bloc`, e2e
    Événements)~~ — fait (voir plus bas).
 5. ~~Restyle écrans Événements + Mapping (+ shell admin partagé)~~ — fait
    (voir plus bas).
-6. Rate limiting (DB, décider header IP).
-7. Déconnexion + expiration glissante (points 6, 7 ci-dessus).
+6. ~~Déconnexion + expiration glissante~~ — fait (voir plus bas).
+7. Rate limiting (DB, décider header IP) — seul point ouvert restant de
+   cette liste.
 
 ## Commandes utiles
 

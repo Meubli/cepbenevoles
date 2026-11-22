@@ -59,6 +59,7 @@ fn api_router() -> Router<AppState> {
     Router::new()
         .route("/auth/request-code", post(auth::request_code))
         .route("/auth/verify-code", post(auth::verify_code))
+        .route("/auth/logout", post(auth::logout))
         .route("/session", get(auth::require_session))
         .route("/sync", post(sync::endpoint::trigger_sync))
         .route(

@@ -8,13 +8,14 @@ use axum::async_trait;
 use axum::extract::{FromRequestParts, State};
 use axum::http::request::Parts;
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use axum::Json;
 use chrono::{Duration, Utc};
 use lettre::message::Message;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
 use rand::Rng;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tower_cookies::cookie::SameSite;
 use tower_cookies::{Cookie, Cookies};
@@ -182,32 +183,85 @@ pub async fn verify_code(
     StatusCode::OK
 }
 
-/// Shared by every protected route (specs §7.3 admin screens, §6.1
-/// "Générer le planning", the manual sync trigger, ...).
-pub async fn session_valid(state: &AppState, cookies: &Cookies) -> bool {
-    let Some(cookie) = cookies.get(SESSION_COOKIE) else {
-        return false;
-    };
+/// Validates the session cookie against the `sessions` table and, in the
+/// same query, renews its sliding expiration (specs §11.3: "renouvelée à
+/// chaque activité" — a session shouldn't creep toward its 180-day
+/// `SESSION_TTL_DAYS` just from regular use). Returns the admin id on
+/// success. `WHERE expires_at > now()` makes the check-and-renew atomic:
+/// an already-expired session is never resurrected by this UPDATE.
+async fn renew_session(state: &AppState, cookies: &Cookies) -> Option<Uuid> {
+    let cookie = cookies.get(SESSION_COOKIE)?;
+    let expires_at = Utc::now() + Duration::days(SESSION_TTL_DAYS);
 
-    let session = sqlx::query!(
-        "SELECT expires_at FROM sessions WHERE token_hash = $1",
-        hash(cookie.value())
+    let row = sqlx::query!(
+        "UPDATE sessions SET last_activity_at = now(), expires_at = $2
+         WHERE token_hash = $1 AND expires_at > now()
+         RETURNING admin_id",
+        hash(cookie.value()),
+        expires_at,
     )
     .fetch_optional(&state.db)
     .await
     .expect("db query failed");
 
-    matches!(session, Some(session) if session.expires_at > Utc::now())
+    row.map(|r| r.admin_id)
+}
+
+/// Shared by every protected route (specs §7.3 admin screens, §6.1
+/// "Générer le planning", the manual sync trigger, ...).
+pub async fn session_valid(state: &AppState, cookies: &Cookies) -> bool {
+    renew_session(state, cookies).await.is_some()
+}
+
+#[derive(Serialize)]
+pub struct SessionInfo {
+    email: String,
+    is_superadmin: bool,
 }
 
 /// Session-check route the frontend polls on load to know whether to show
-/// the login screen or an admin screen (wireframe s0 vs the rest).
-pub async fn require_session(State(state): State<AppState>, cookies: Cookies) -> StatusCode {
-    if session_valid(&state, &cookies).await {
-        StatusCode::OK
-    } else {
-        StatusCode::UNAUTHORIZED
+/// the login screen or an admin screen (wireframe s0 vs the rest). On
+/// success, returns the admin's identity so the admin shell can show it
+/// (wireframe session-box, specs §11.3's "barre de navigation").
+pub async fn require_session(State(state): State<AppState>, cookies: Cookies) -> Response {
+    let Some(admin_id) = renew_session(&state, &cookies).await else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+
+    let admin = sqlx::query!(
+        "SELECT email, is_superadmin FROM admins WHERE id = $1",
+        admin_id
+    )
+    .fetch_one(&state.db)
+    .await
+    .expect("admin must exist for a valid session");
+
+    Json(SessionInfo {
+        email: admin.email,
+        is_superadmin: admin.is_superadmin,
+    })
+    .into_response()
+}
+
+/// Destroys the current session server-side and clears the cookie (specs
+/// §11.3: "déconnexion manuelle disponible à tout moment"). Idempotent —
+/// no session cookie, or one that doesn't match any row, is not an error.
+pub async fn logout(State(state): State<AppState>, cookies: Cookies) -> StatusCode {
+    if let Some(cookie) = cookies.get(SESSION_COOKIE) {
+        sqlx::query!(
+            "DELETE FROM sessions WHERE token_hash = $1",
+            hash(cookie.value())
+        )
+        .execute(&state.db)
+        .await
+        .expect("db delete failed");
     }
+
+    let mut cookie = Cookie::new(SESSION_COOKIE, "");
+    cookie.set_path("/");
+    cookies.remove(cookie);
+
+    StatusCode::NO_CONTENT
 }
 
 /// Extracts the authenticated admin's id, rejecting with 401 otherwise.
@@ -226,21 +280,10 @@ impl FromRequestParts<AppState> for AuthAdmin {
         let cookies = Cookies::from_request_parts(parts, state)
             .await
             .map_err(|_| StatusCode::UNAUTHORIZED)?;
-        let cookie = cookies
-            .get(SESSION_COOKIE)
-            .ok_or(StatusCode::UNAUTHORIZED)?;
 
-        let row = sqlx::query!(
-            "SELECT admin_id, expires_at FROM sessions WHERE token_hash = $1",
-            hash(cookie.value())
-        )
-        .fetch_optional(&state.db)
-        .await
-        .expect("db query failed");
-
-        match row {
-            Some(row) if row.expires_at > Utc::now() => Ok(AuthAdmin(row.admin_id)),
-            _ => Err(StatusCode::UNAUTHORIZED),
-        }
+        renew_session(state, &cookies)
+            .await
+            .map(AuthAdmin)
+            .ok_or(StatusCode::UNAUTHORIZED)
     }
 }

@@ -41,6 +41,41 @@
 	margin: 0 auto;
 	padding: 24px 16px 60px;
 }
+.topbar {
+	background: var(--surface);
+	border-bottom: 1px solid var(--line);
+	padding: 14px 16px;
+}
+.topbar-inner {
+	display: flex;
+	align-items: center;
+	gap: 18px;
+	flex-wrap: wrap;
+	max-width: 1100px;
+	margin: 0 auto;
+}
+.brand {
+	font-family: var(--font-display);
+	font-size: 13px;
+	letter-spacing: 0.04em;
+	color: var(--muted);
+	white-space: nowrap;
+}
+.session-box {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-left: auto;
+	font-size: 12px;
+	color: var(--muted);
+}
+.role-badge {
+	font-size: 10px;
+	border: 1px solid var(--accent);
+	color: var(--accent);
+	border-radius: 3px;
+	padding: 1px 5px;
+}
 .admin-shell h2,
 .admin-shell h3 {
 	font-family: var(--font-display);

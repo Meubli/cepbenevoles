@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sessions SET last_activity_at = now(), expires_at = $2\n         WHERE token_hash = $1 AND expires_at > now()\n         RETURNING admin_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "admin_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "744ff2df23221fd1f8a809f927931f30b641d747b4224ec04adaeb8d8507d416"
+}
