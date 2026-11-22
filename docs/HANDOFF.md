@@ -1,19 +1,17 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-22. Dernier commit : `ffa025b`.
+Dernière mise à jour : 2026-11-22. Dernier commit : `ef8a182`.
 
 ## État général
 
-**`git status` NON vide à la rédaction de ce fichier** — rien commité depuis
-`ffa025b`, tout ce qui suit dans "Fait" est en working tree seulement. Gros
-diff (~18 fichiers trackés modifiés + fichiers neufs : `.env.dev.example`,
-`dev/`, `docker-compose.dev.yml`, `frontend/src/routes/connexion/`,
-`e2e/tests/connexion.spec.ts`, `e2e/sheets-stub/fixtures/`,
-`backend/.sqlx/query-28f3bb2d70c7d0fc5108bd0c92c947f3bad264a33a6e0f96a6be6c01e33afc99.json`)
-couvrant 5 lots de travail à peu près indépendants (dev compose + bootstrap,
-stub Sheets, écran connexion + cookie, son restyle, `SHEET_VALIDATION`/
-`validate_bloc`/e2e Événements) — pas encore demandé à l'utilisateur s'il
-veut un seul commit ou un par lot. Stack :
+Repo propre, tout commité (`git status` vide à la rédaction de ce fichier),
+en 5 commits séparés par lot (demandé par l'utilisateur, un par morceau de
+travail indépendant plutôt qu'un seul commit fourre-tout) :
+`66ed12a` (dev compose + bootstrap), `c1f36cc` (stub Sheets), `677f2f0`
+(écran connexion + cookie SameSite/Secure), `612b957` (restyle connexion),
+`ef8a182` (`SHEET_VALIDATION` + `validate_bloc` + e2e Événements + specs).
+Chaque commit a été vérifié individuellement (build + e2e complet) avant
+le suivant. Stack :
 Rust/Axum/sqlx backend, SvelteKit SPA frontend, Postgres, tests Rust (unitaires +
 intégration testcontainers) + Playwright e2e. Voir `docs/specs.md` (fonctionnel) et
 `docs/technical-specs.md` (technique) pour les specs à jour — ce fichier ne les
