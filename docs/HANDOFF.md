@@ -1,6 +1,6 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-22. Dernier commit : `e145d2e`.
+Dernière mise à jour : 2026-11-22. Dernier commit : `ec34e8f`.
 
 ## État général
 
@@ -12,7 +12,8 @@ commit fourre-tout) :
 `ef8a182` (`SHEET_VALIDATION` + `validate_bloc` + e2e Événements + specs),
 `9ae7478` (restyle Événements + shell admin partagé), `fd409d1` (restyle
 Mapping), `b665773` (déconnexion + expiration glissante), `e145d2e`
-(écran Admins). Chaque commit a été vérifié individuellement (build + e2e
+(écran Admins), `ec34e8f` (fix overflow inputs/box-sizing + largeur
+shell). Chaque commit a été vérifié individuellement (build + e2e
 complet) avant le suivant. Stack :
 Rust/Axum/sqlx backend, SvelteKit SPA frontend, Postgres, tests Rust (unitaires +
 intégration testcontainers) + Playwright e2e. Voir `docs/specs.md` (fonctionnel) et
