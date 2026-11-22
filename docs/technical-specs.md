@@ -82,3 +82,11 @@ Mise à jour live du planning entre admins (cf. `specs.md` §7.1) — niveau min
   - Handshake authentifié avec la **même session cookie** (httpOnly) que le reste de l'appli ; upgrade refusé sans session valide.
   - `wss://` uniquement (TLS via le reverse proxy, cf. 1).
   - Messages sans donnée sensible (juste des identifiants de rafraîchissement), ce qui limite encore l'impact d'une éventuelle fuite.
+
+## 11. Corrélation des erreurs (correlation ID)
+
+- Chaque requête HTTP entrante se voit attribuer un **ID de corrélation** (UUID v4), généré par un middleware Axum (ex. `tower-http::request_id`), dès son entrée.
+- Cet ID est injecté dans le **span `tracing`** de la requête : toutes les lignes de log émises pendant son traitement (niveau debug, cf. §8) le portent automatiquement, sans avoir à le passer manuellement à chaque fonction.
+- **Erreur technique (5xx)** : la réponse JSON renvoyée au frontend inclut l'ID de corrélation (champ `correlation_id`), en plus du header `X-Correlation-Id`. Le frontend affiche un message générique ("Une erreur technique est survenue") accompagné de cet ID, à communiquer à un admin/développeur pour retrouver les logs correspondants (`docker logs`, recherche du UUID).
+- **Erreur fonctionnelle/validation (4xx)** : pas besoin de corrélation — le message retourné est déjà explicite et actionnable par l'utilisateur (cf. règles de validation métier, `specs.md`), inutile de complexifier l'affichage.
+- Pas de stockage de l'ID côté base ; uniquement présent dans les logs du conteneur (stdout) le temps de leur rétention (gérée par Docker, pas de rotation applicative dédiée à ce stade).
