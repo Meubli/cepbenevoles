@@ -1,20 +1,19 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-22. Dernier commit : `fd409d1` (avant la
-session de déconnexion/expiration glissante ci-dessous, pas encore commitée
-à la rédaction de ce paragraphe — voir en tête de "Fait").
+Dernière mise à jour : 2026-11-22. Dernier commit : `b665773`.
 
 ## État général
 
-Repo propre entre chaque lot de travail, commits séparés par lot (demandé
-par l'utilisateur, un par morceau de travail indépendant plutôt qu'un seul
+Repo propre (`git status` vide), commits séparés par lot (demandé par
+l'utilisateur, un par morceau de travail indépendant plutôt qu'un seul
 commit fourre-tout) :
 `66ed12a` (dev compose + bootstrap), `c1f36cc` (stub Sheets), `677f2f0`
 (écran connexion + cookie SameSite/Secure), `612b957` (restyle connexion),
 `ef8a182` (`SHEET_VALIDATION` + `validate_bloc` + e2e Événements + specs),
 `9ae7478` (restyle Événements + shell admin partagé), `fd409d1` (restyle
-Mapping). Chaque commit a été vérifié individuellement (build + e2e
-complet) avant le suivant. Stack :
+Mapping), `b665773` (déconnexion + expiration glissante). Chaque commit a
+été vérifié individuellement (build + e2e complet) avant le suivant.
+Stack :
 Rust/Axum/sqlx backend, SvelteKit SPA frontend, Postgres, tests Rust (unitaires +
 intégration testcontainers) + Playwright e2e. Voir `docs/specs.md` (fonctionnel) et
 `docs/technical-specs.md` (technique) pour les specs à jour — ce fichier ne les
