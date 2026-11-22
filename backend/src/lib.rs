@@ -2,6 +2,7 @@ pub mod auth;
 pub mod config;
 pub mod health;
 pub mod sheets;
+pub mod sync;
 
 use axum::routing::{get, post};
 use axum::Router;

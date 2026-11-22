@@ -99,7 +99,7 @@ async fn sheets_client_parses_the_real_form_structure_fixture() {
         "anonymized, not the real volunteer's name"
     );
     assert_eq!(
-        rows[3][3], "13 - 14",
+        rows[3][3], "13 - 14 ans",
         "age bracket column matches real form wording"
     );
 }
