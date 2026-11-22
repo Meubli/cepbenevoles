@@ -41,7 +41,7 @@ test('an admin creates an event, then archives and unarchives it', async ({ page
 	await page.getByLabel('Date fin').fill('2027-05-04');
 	await page.getByRole('button', { name: "Créer l'événement" }).click();
 
-	const row = page.locator('tr', { hasText: nom });
+	const row = page.locator('[data-testid="evenement-row"]', { hasText: nom });
 	await expect(row).toContainText('actif');
 
 	await row.getByRole('button', { name: 'Archiver' }).click();
@@ -76,7 +76,7 @@ test('entering a sheet_id reveals the bloc selector, and the created event keeps
 
 	await page.getByRole('button', { name: "Créer l'événement" }).click();
 
-	const row = page.locator('tr', { hasText: nom });
+	const row = page.locator('[data-testid="evenement-row"]', { hasText: nom });
 	await expect(row).toContainText(sheetId);
 });
 

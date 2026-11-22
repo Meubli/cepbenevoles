@@ -115,6 +115,26 @@ duplique pas, il dit où on en est par rapport à elles.
   et le nouveau comportement par défaut de `SHEET_VALIDATION` (le texte
   précédent décrivait encore l'ancien "ignoré silencieusement").
 
+- **Écran "Événements" restylé + shell admin partagé** : nouveau groupe de
+  routes SvelteKit `frontend/src/routes/(admin)/` (ne change pas les URLs —
+  `/mapping` et `/evenements` restent inchangées) avec un `+layout.svelte`
+  commun — sidebar `AdminNav` (`frontend/src/lib/AdminNav.svelte`) + panel
+  `wf` — et les tokens/classes CSS partagés extraits dans
+  `frontend/src/lib/styles/admin.css` (scopés à `.admin-shell`, jamais
+  `:root`/`body` global, pour ne pas affecter `/connexion`). La sidebar
+  reprend les 10 entrées de la maquette (écran s11) ; seules
+  "Événements"/"Mapping form" sont de vrais liens (`resolve()` de
+  `$app/paths`, imposé par l'eslint rule `svelte/no-navigation-without-resolve`),
+  les 8 autres s'affichent désactivées (pas de lien mort, pas un mensonge sur
+  ce qui marche) — décision prise avec l'utilisateur. `/evenements` reprend
+  la liste en `comm-row`/`comm-main`/`comm-meta` + formulaires en
+  `field-grid` de l'écran s11 ; `/mapping` hérite du même shell (fond, nav,
+  police) mais son propre contenu reste non stylé (pas demandé). e2e
+  Événements adapté : la ligne d'événement n'est plus un `<tr>` (liste en
+  divs, pas une table) — `e2e/tests/evenements.spec.ts` cible maintenant
+  `[data-testid="evenement-row"]`. Vérifié dans le navigateur (création
+  d'événement + nav cliquée vers `/mapping`) et e2e (8/8 verts).
+
 Compteurs : ~70 tests Rust (unitaires + intégration, +1 depuis le dernier
 comptage pour `SHEET_VALIDATION`), 8 tests Playwright e2e, tous verts au
 dernier run.
@@ -147,12 +167,10 @@ dernier run.
 9. **Écran Commissions** (créer/éditer commissions et postes à la main) —
    n'existe pas, le référentiel n'est modifiable que par migration SQL pour
    l'instant.
-10. **`/mapping` et `/evenements` ne reprennent pas la maquette** (`mockups/
-    wireframes.html`, écrans s10/s11) : seul `/connexion` (s0) a été restylé,
-    scope explicitement limité à cet écran avec l'utilisateur. Pas de
-    topbar/nav globale, pas de tokens CSS partagés entre écrans pour
-    l'instant — chaque écran restylé devra soit dupliquer soit extraire les
-    tokens (`--bg`, `--ink`, classes `.wf`/`.btn-wf`/etc.) en styles communs.
+10. ~~`/evenements` ne reprenait pas la maquette~~ — **fait** (voir plus
+    bas) : shell admin partagé + sidebar nav, `/evenements` restylé.
+    **`/mapping` reste non stylé** (hérite juste du shell/fond/police) — pas
+    demandé pour l'instant.
 
 ## Prochaines étapes, dans l'ordre discuté avec l'utilisateur
 
@@ -162,8 +180,11 @@ dernier run.
    (voir plus bas) ; déconnexion et expiration glissante restent (points 6, 7).
 4. ~~Petites corrections (`SHEET_VALIDATION`, `validate_bloc`, e2e
    Événements)~~ — fait (voir plus bas).
-5. Rate limiting (DB, décider header IP).
-6. Déconnexion + expiration glissante (points 6, 7 ci-dessus).
+5. ~~Restyle écran Événements (+ shell admin partagé)~~ — fait (voir plus bas).
+6. Rate limiting (DB, décider header IP).
+7. Déconnexion + expiration glissante (points 6, 7 ci-dessus).
+8. Éventuellement restyler `/mapping` (actuellement juste dans le shell,
+   contenu toujours non stylé).
 
 ## Commandes utiles
 
@@ -236,8 +257,14 @@ casse.
 - `backend/src/auth.rs` — OTP login + `AuthAdmin` extractor.
 - `backend/migrations/` — tout le schéma, dans l'ordre chronologique des commits.
 - `frontend/src/lib/api.ts` — wrapper fetch partagé par tous les écrans.
-- `frontend/src/routes/{mapping,evenements,connexion}/+page.svelte` — les
-  écrans existants.
+- `frontend/src/routes/(admin)/` — groupe de routes partageant le shell admin
+  (`+layout.svelte` + `#lib/AdminNav.svelte` + `#lib/styles/admin.css`) ;
+  contient `(admin)/mapping/+page.svelte` et `(admin)/evenements/+page.svelte`
+  (le groupe `(admin)` ne change pas les URLs : toujours `/mapping` et
+  `/evenements`).
+- `frontend/src/routes/connexion/+page.svelte` — écran de connexion, en
+  dehors du groupe `(admin)` (pas connecté → pas de sidebar), styles scopés
+  au composant lui-même, pas partagés avec `admin.css`.
 - `e2e/tests/` — un spec par écran, pattern : email admin dédié **par test**,
   pas seulement par spec (évite une race Mailpit "dernier message" + une race
   sur "challenge actif le plus récent" côté `verify_code` entre tests tournant
