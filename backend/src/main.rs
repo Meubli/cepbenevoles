@@ -4,7 +4,7 @@ use std::time::Duration;
 use benefrance_backend::google_auth::{GoogleAuth, ServiceAccountKey};
 use benefrance_backend::sheets::SheetsClient;
 use benefrance_backend::sync::orchestrate::sync_all_and_record;
-use benefrance_backend::{app, config::Config, AppState, SyncContext};
+use benefrance_backend::{app, config::Config, live, AppState, SyncContext};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use tokio::sync::Mutex;
@@ -42,9 +42,11 @@ async fn main() {
         &config.sheets_api_base_url,
     );
 
+    let live = live::channel();
+
     if let Some(sync) = sync.clone() {
         if config.sync_interval_seconds > 0 {
-            spawn_scheduler(db.clone(), sync, config.sync_interval_seconds);
+            spawn_scheduler(db.clone(), sync, config.sync_interval_seconds, live.clone());
         } else {
             tracing::info!(
                 "SYNC_INTERVAL_SECONDS=0 — periodic sync disabled, manual sync still works"
@@ -64,6 +66,7 @@ async fn main() {
         sync,
         session_cookie_secure: config.session_cookie_secure,
         sheet_validation_required: config.sheet_validation_required,
+        live,
     };
     let router = app(state, config.static_dir.as_deref());
 
@@ -118,7 +121,7 @@ fn build_sync_context(key_path: &Option<String>, sheets_api_base_url: &str) -> O
 /// process on a sync failure — individual sheet failures are already
 /// captured per-sheet (sync_run.error); anything that escapes that (a
 /// database error) is just logged, the next tick tries again.
-fn spawn_scheduler(db: PgPool, sync: SyncContext, interval_seconds: u64) {
+fn spawn_scheduler(db: PgPool, sync: SyncContext, interval_seconds: u64, live: live::LiveSender) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(interval_seconds));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -139,6 +142,12 @@ fn spawn_scheduler(db: PgPool, sync: SyncContext, interval_seconds: u64) {
                             tracing::warn!(sheet_id = %outcome.sheet_id, error = %err, "scheduled sync failed for this sheet");
                         }
                     }
+                    // The scheduler writes to the DB directly, outside the
+                    // HTTP middleware that broadcasts for manual mutations
+                    // (lib.rs's emit_live_event) — emit here too, so the
+                    // Synchro screen refreshes on its own without a manual
+                    // "Synchroniser maintenant" click.
+                    let _ = live.send("sync".to_string());
                 }
                 Err(err) => {
                     tracing::error!(error = %err, "scheduled sync_all_and_record failed");

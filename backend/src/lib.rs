@@ -6,6 +6,7 @@ pub mod correlation;
 pub mod evenements;
 pub mod google_auth;
 pub mod health;
+pub mod live;
 pub mod mapping;
 pub mod sheets;
 pub mod sync;
@@ -53,6 +54,10 @@ pub struct AppState {
     pub session_cookie_secure: bool,
     /// See `Config::sheet_validation_required`.
     pub sheet_validation_required: bool,
+    /// Broadcasts a resource tag (e.g. "commissions") after a successful
+    /// write, so every connected admin screen watching it refetches
+    /// (technical-specs.md §10). Push-only, no data on the wire.
+    pub live: live::LiveSender,
 }
 
 /// Every backend route lives under `/api` (except `/health`, an infra
@@ -66,6 +71,7 @@ fn api_router() -> Router<AppState> {
         .route("/session", get(auth::require_session))
         .route("/sync", post(sync::endpoint::trigger_sync))
         .route("/sync/status", get(sync::endpoint::get_sync_status))
+        .route("/ws", get(live::ws_handler))
         .route(
             "/mapping",
             get(mapping::endpoint::list_mapping).post(mapping::endpoint::post_mapping),
@@ -123,7 +129,13 @@ fn api_router() -> Router<AppState> {
 pub fn app(state: AppState, static_dir: Option<&str>) -> Router {
     let mut router = Router::new()
         .route("/health", get(health::health))
-        .nest("/api", api_router())
+        .nest(
+            "/api",
+            api_router().layer(middleware::from_fn_with_state(
+                state.clone(),
+                live::emit_live_event,
+            )),
+        )
         .layer(CookieManagerLayer::new())
         // correlation_id is added last so it wraps (runs outside) this —
         // TraceLayer's debug logs (method/path/status/latency per request)

@@ -48,6 +48,7 @@ fn base_state(pool: PgPool) -> AppState {
         sync: None,
         session_cookie_secure: true,
         sheet_validation_required: true,
+        live: benefrance_backend::live::channel(),
     }
 }
 

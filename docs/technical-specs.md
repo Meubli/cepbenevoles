@@ -73,15 +73,16 @@ Stratégie à trois niveaux, tests d'intégration et e2e priorisés sur les test
 
 ## 10. Temps réel (websocket)
 
-Mise à jour live du planning entre admins (cf. `specs.md` §7.1) — niveau minimal : **notification de rafraîchissement**, pas d'édition collaborative (pas de curseurs, pas de résolution de conflit type CRDT).
+**Résolu (implémentation) — élargi à tous les écrans admin, pas seulement Planning** : à l'origine ce chapitre ne couvrait que la mise à jour live du planning entre admins (specs.md §7.1). Demandé explicitement par l'utilisateur : chaque écran admin (Commissions, Mapping form, Événements, Synchro form, Admins — Planning suivra le même mécanisme une fois construit) doit refléter en direct les changements faits par un autre admin, sans recharger la page. Niveau minimal, inchangé : **notification de rafraîchissement par tag de ressource**, pas d'édition collaborative (pas de curseurs, pas de résolution de conflit type CRDT) — en cas d'édition concurrente du même élément, dernier enregistrement gagne.
 
-- **Support** : websocket intégré d'Axum (`axum::extract::ws`), pas de dépendance ni d'infra supplémentaire.
-- **Flux push-only** : toute modification passe par les routes HTTP authentifiées habituelles (jamais d'écriture via le websocket). Après écriture en base, le serveur diffuse un événement (`{evenement_id, jour}`) à tous les clients connectés via un `tokio::sync::broadcast`, scope par (événement, jour) pour ne pas arroser tout le monde à chaque modification.
-- **Client** : à réception de l'événement, recharge simplement les données du planning affiché (pas de state partagé à fusionner) ; reconnexion automatique basique si le socket tombe.
+- **Support** : websocket intégré d'Axum (`axum::extract::ws`), pas de dépendance ni d'infra supplémentaire. Un seul endpoint `GET /api/ws` pour tous les écrans (pas un par écran).
+- **Flux push-only, sans donnée** : toute modification passe par les routes HTTP authentifiées habituelles (jamais d'écriture via le websocket), et le message diffusé ne contient **jamais les données elles-mêmes** — juste un tag de ressource générique (ex. `"commissions"`, `"mapping"`, `"evenements"`, `"sync"`, `"admins"`), tiré du premier segment du chemin de la requête qui vient de réussir (`backend/src/live.rs::emit_live_event`, middleware sur `api_router()` : non-GET + statut 2xx seulement, `/auth/*` exclu). Diffusion via un `tokio::sync::broadcast::Sender<String>` partagé (`AppState.live`), sans scoping par (événement, jour) — plus simple que le scoping Planning initialement envisagé, suffisant pour une appli de cette taille ; **le scheduler de sync** (`main.rs::spawn_scheduler`, qui écrit en base hors requête HTTP) émet aussi `"sync"` après chaque exécution, puisqu'il contourne le middleware.
+- **Client** (`frontend/src/lib/live.ts`) : un seul websocket partagé par onglet, ouvert à la première page qui s'y abonne (`onLive(tags, cb)`). À réception d'un tag, seules les pages abonnées à ce tag (ou à un full-resync `"*"`, envoyé après une reconnexion — les événements manqués pendant la coupure ne sont pas rejoués) rappellent leur fonction de rafraîchissement ; reconnexion automatique avec backoff exponentiel (max 15s). **Un rafraîchissement déclenché par le live ne doit jamais** faire disparaître un formulaire en cours de saisie (pas de toggle de `loading`) **ni** effacer un message d'erreur de validation qu'une action locale vient de poser (le rafraîchissement live ne touche l'état d'erreur qu'en cas d'échec de son propre fetch, jamais en l'effaçant sur un succès) — motif direct d'une régression e2e observée (deux workers Playwright sur le même backend) et corrigée en conséquence.
 - **Sécurité** :
-  - Handshake authentifié avec la **même session cookie** (httpOnly) que le reste de l'appli ; upgrade refusé sans session valide.
-  - `wss://` uniquement (TLS via le reverse proxy, cf. 1).
-  - Messages sans donnée sensible (juste des identifiants de rafraîchissement), ce qui limite encore l'impact d'une éventuelle fuite.
+  - Handshake authentifié avec la **même session cookie** (httpOnly) que le reste de l'appli ; upgrade refusé sans session valide (`AuthAdmin`, comme toute autre route).
+  - `wss://` uniquement (TLS via le reverse proxy, cf. 1) — **point ouvert, non vérifié en prod** : la configuration du reverse proxy doit transmettre l'en-tête `Upgrade` (comme pour tout websocket), pas encore documentée/testée ici.
+  - Messages sans donnée sensible (juste un tag de ressource), ce qui limite encore l'impact d'une éventuelle fuite.
+  - **Connu non géré** : un websocket ouvert n'est pas fermé à la déconnexion ou à la suppression de l'admin — risque faible, il ne porte aucune donnée.
 
 ## 11. Corrélation des erreurs (correlation ID)
 
