@@ -244,9 +244,10 @@ fn parse_attendance(
 /// Parses one data row against the 2027 form's header row.
 ///
 /// `row_index` is the caller's position of this row in the full Sheet
-/// values array — used for the dedup key alongside `horodateur` (cf.
-/// specs.md §3.3 — a position-based key is fragile against reordering, a
-/// known tradeoff to revisit before the real sync job ships).
+/// values array, used only to identify which row a `RowError` came from.
+/// The dedup key is `(horodateur, email)` (cf. specs.md §3.3), not the row
+/// position — a position-based key would break as soon as a row is
+/// reordered or deleted in the Sheet.
 pub fn parse_row(
     header: &[String],
     row: &[String],
