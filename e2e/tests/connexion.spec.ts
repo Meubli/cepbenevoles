@@ -29,6 +29,14 @@ async function seedAdmin(email: string): Promise<void> {
 	}
 }
 
+// The code form is 6 single-digit boxes (mockups/wireframes.html screen s0),
+// not one text input — fills each one in turn.
+async function fillCode(page: import('@playwright/test').Page, code: string) {
+	for (let i = 0; i < code.length; i++) {
+		await page.getByLabel(`Chiffre ${i + 1} du code`).fill(code[i]);
+	}
+}
+
 test('an admin logs in through the /connexion page and reaches an admin screen', async ({
 	page,
 	request
@@ -36,13 +44,13 @@ test('an admin logs in through the /connexion page and reaches an admin screen',
 	await seedAdmin(CONNEXION_TEST_ADMIN_EMAIL);
 
 	await page.goto('/connexion');
-	await page.getByLabel('Email').fill(CONNEXION_TEST_ADMIN_EMAIL);
-	await page.getByRole('button', { name: 'Recevoir un code' }).click();
+	await page.getByPlaceholder('prenom.nom@exemple.fr').fill(CONNEXION_TEST_ADMIN_EMAIL);
+	await page.getByRole('button', { name: 'Recevoir le code' }).click();
 
-	await expect(page.getByLabel('Code reçu par email')).toBeVisible();
+	await expect(page.getByLabel('Chiffre 1 du code')).toBeVisible();
 
 	const code = await readLatestOtpCode(request, CONNEXION_TEST_ADMIN_EMAIL);
-	await page.getByLabel('Code reçu par email').fill(code);
+	await fillCode(page, code);
 	await page.getByRole('button', { name: 'Se connecter' }).click();
 
 	await expect(page).toHaveURL(/\/mapping$/);
@@ -55,10 +63,10 @@ test('a wrong code shows an inline error instead of redirecting to /connexion', 
 	await seedAdmin(WRONG_CODE_TEST_ADMIN_EMAIL);
 
 	await page.goto('/connexion');
-	await page.getByLabel('Email').fill(WRONG_CODE_TEST_ADMIN_EMAIL);
-	await page.getByRole('button', { name: 'Recevoir un code' }).click();
+	await page.getByPlaceholder('prenom.nom@exemple.fr').fill(WRONG_CODE_TEST_ADMIN_EMAIL);
+	await page.getByRole('button', { name: 'Recevoir le code' }).click();
 
-	await page.getByLabel('Code reçu par email').fill('000000');
+	await fillCode(page, '000000');
 	await page.getByRole('button', { name: 'Se connecter' }).click();
 
 	await expect(page.getByRole('alert')).toHaveText('Code invalide ou expiré.');
