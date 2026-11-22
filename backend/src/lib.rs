@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod config;
 pub mod correlation;
+pub mod evenements;
 pub mod google_auth;
 pub mod health;
 pub mod mapping;
@@ -10,7 +11,7 @@ pub mod sync;
 use std::sync::Arc;
 
 use axum::middleware;
-use axum::routing::{get, post};
+use axum::routing::{get, patch, post};
 use axum::Router;
 use sqlx::PgPool;
 use tokio::sync::Mutex;
@@ -59,6 +60,18 @@ fn api_router() -> Router<AppState> {
             get(mapping::endpoint::list_mapping).post(mapping::endpoint::post_mapping),
         )
         .route("/commissions", get(mapping::endpoint::list_commissions))
+        .route(
+            "/evenements",
+            get(evenements::endpoint::list_evenements).post(evenements::endpoint::post_evenement),
+        )
+        .route(
+            "/evenements/:id",
+            patch(evenements::endpoint::patch_evenement),
+        )
+        .route(
+            "/evenements/:id/archive",
+            patch(evenements::endpoint::patch_archive),
+        )
         // Without this, an unmatched /api/* path falls through to the SPA
         // fallback below and gets served index.html as if it were a page —
         // api.ts would then try to JSON-parse an HTML body.
