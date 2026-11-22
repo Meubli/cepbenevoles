@@ -1,6 +1,6 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-22. Dernier commit : voir `git log -1`.
+Dernière mise à jour : 2026-11-22. Dernier commit : `2e29306`.
 
 ## État général
 
