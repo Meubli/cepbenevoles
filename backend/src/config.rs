@@ -23,6 +23,10 @@ pub struct Config {
     /// technical-specs.md §3). Absent in local dev, where the frontend is
     /// served separately by `vite dev` (proxying `/api` to this backend).
     pub static_dir: Option<String>,
+    /// `Secure` flag on the session cookie (specs.md §11.3). Defaults to
+    /// true (real deployments are HTTPS); set `SESSION_COOKIE_SECURE=false`
+    /// for local dev/e2e over plain http.
+    pub session_cookie_secure: bool,
     /// Email of the first superadmin to seed at startup (specs.md §11.4),
     /// idempotent (no-op if an admin with that email already exists).
     /// Absent: no bootstrap, nobody can log in until a row exists in
@@ -54,6 +58,9 @@ impl Config {
                 .expect("SYNC_INTERVAL_SECONDS must be a non-negative integer"),
             static_dir: std::env::var("STATIC_DIR").ok(),
             bootstrap_superadmin_email: std::env::var("BOOTSTRAP_SUPERADMIN_EMAIL").ok(),
+            session_cookie_secure: std::env::var("SESSION_COOKIE_SECURE")
+                .map(|v| v != "false")
+                .unwrap_or(true),
         }
     }
 }

@@ -44,6 +44,10 @@ pub struct AppState {
     pub smtp_pass: Option<String>,
     pub smtp_from: String,
     pub sync: Option<SyncContext>,
+    /// `Secure` flag on the session cookie (specs.md §11.3). Only false in
+    /// local dev/e2e, served over plain http — a `Secure` cookie set there
+    /// would never be sent back by the browser.
+    pub session_cookie_secure: bool,
 }
 
 /// Every backend route lives under `/api` (except `/health`, an infra

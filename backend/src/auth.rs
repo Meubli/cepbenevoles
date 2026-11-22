@@ -16,6 +16,7 @@ use lettre::{AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
 use rand::Rng;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use tower_cookies::cookie::SameSite;
 use tower_cookies::{Cookie, Cookies};
 use uuid::Uuid;
 
@@ -174,6 +175,8 @@ pub async fn verify_code(
     let mut cookie = Cookie::new(SESSION_COOKIE, token);
     cookie.set_http_only(true);
     cookie.set_path("/");
+    cookie.set_same_site(SameSite::Lax);
+    cookie.set_secure(state.session_cookie_secure);
     cookies.add(cookie);
 
     StatusCode::OK

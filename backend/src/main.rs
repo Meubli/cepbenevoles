@@ -53,6 +53,7 @@ async fn main() {
         smtp_pass: config.smtp_pass,
         smtp_from: config.smtp_from,
         sync,
+        session_cookie_secure: config.session_cookie_secure,
     };
     let router = app(state, config.static_dir.as_deref());
 

@@ -13,18 +13,25 @@ export class ApiError extends Error {
 	}
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+type RequestOptions = RequestInit & {
+	// The login screen itself calls /auth/verify-code and /session, both of
+	// which answer 401 on a wrong code or no session yet — expected
+	// outcomes there, not "the session just died" (which is what the
+	// redirect below is for everywhere else).
+	skipAuthRedirect?: boolean;
+};
+
+async function request<T>(path: string, init?: RequestOptions): Promise<T> {
 	const response = await fetch(`/api${path}`, {
 		credentials: 'include',
 		headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
 		...init
 	});
 
-	if (response.status === 401) {
-		// A full navigation, not goto(): the login screen doesn't exist as a
-		// SvelteKit route yet (specs.md §0, planned next), and a hard
-		// redirect also clears any in-memory state, which is the right
-		// behavior for "the session just died" anyway.
+	if (response.status === 401 && !init?.skipAuthRedirect) {
+		// A full navigation, not goto(): a hard redirect also clears any
+		// in-memory state, which is the right behavior for "the session
+		// just died" anyway.
 		if (browser) window.location.href = '/connexion';
 		throw new ApiError(401, undefined, 'Session expirée, reconnexion nécessaire.');
 	}
@@ -52,9 +59,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-	get: <T>(path: string) => request<T>(path),
-	post: <T>(path: string, body?: unknown) =>
+	get: <T>(path: string, options?: { skipAuthRedirect?: boolean }) => request<T>(path, options),
+	post: <T>(path: string, body?: unknown, options?: { skipAuthRedirect?: boolean }) =>
 		request<T>(path, {
+			...options,
 			method: 'POST',
 			body: body !== undefined ? JSON.stringify(body) : undefined
 		}),

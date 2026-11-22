@@ -41,6 +41,7 @@ fn base_state(pool: PgPool) -> AppState {
         smtp_pass: None,
         smtp_from: "noreply@example.org".to_string(),
         sync: None,
+        session_cookie_secure: true,
     }
 }
 

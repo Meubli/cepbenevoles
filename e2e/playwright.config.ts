@@ -23,6 +23,7 @@ export default defineConfig({
 			SMTP_HOST: process.env.E2E_SMTP_HOST ?? '127.0.0.1',
 			SMTP_PORT: process.env.E2E_SMTP_PORT ?? '11025',
 			SMTP_FROM: 'benefrance@example.org',
+			SESSION_COOKIE_SECURE: 'false',
 			// Serves the real built SPA (technical-specs.md §3) so a
 			// page.goto('/mapping') reaches the actual page, not a 404.
 			STATIC_DIR: '../frontend/build'
