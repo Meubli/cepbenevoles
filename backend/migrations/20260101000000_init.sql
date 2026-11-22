@@ -1,0 +1,2 @@
+-- Establishes the migrations directory. No schema yet: the data model
+-- (Evenement, Commission, Soumission, ...) lands with the first real feature.

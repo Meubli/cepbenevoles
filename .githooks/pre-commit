@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Fast local guardrails. Point git at this hooks dir once:
+#   git config core.hooksPath .githooks
+set -euo pipefail
+
+echo "==> cargo fmt --check"
+cargo fmt --check
+
+changed_rust=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^backend/.*\.rs$' || true)
+if [ -n "$changed_rust" ]; then
+	echo "==> cargo clippy -- -D warnings"
+	SQLX_OFFLINE=true cargo clippy --manifest-path backend/Cargo.toml --all-targets -- -D warnings
+fi
+
+changed_frontend=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^frontend/' || true)
+if [ -n "$changed_frontend" ]; then
+	echo "==> svelte-check"
+	(cd frontend && npm run check)
+	echo "==> eslint + prettier"
+	(cd frontend && npm run lint)
+fi
