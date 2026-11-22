@@ -191,7 +191,11 @@ mod tests {
 
         let requests = mock_server.received_requests().await.unwrap();
         assert_eq!(requests[0].url.path(), "/v4/spreadsheets/fake-sheet-id");
-        assert!(requests[0].url.query().unwrap_or("").contains("fields=spreadsheetId"));
+        assert!(requests[0]
+            .url
+            .query()
+            .unwrap_or("")
+            .contains("fields=spreadsheetId"));
     }
 
     #[tokio::test]
@@ -203,7 +207,10 @@ mod tests {
             .await;
         let client = SheetsClient::new(mock_server.uri());
         assert!(matches!(
-            client.check_access("fake-token", "missing").await.unwrap_err(),
+            client
+                .check_access("fake-token", "missing")
+                .await
+                .unwrap_err(),
             SheetsError::NotFound
         ));
     }

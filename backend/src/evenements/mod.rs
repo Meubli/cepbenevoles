@@ -30,8 +30,17 @@ pub enum SheetIdError {
 /// plausible Drive file id — a raw `/` in particular would break the HTTP
 /// client's URL building (cf. `SheetsClient`), not just "look wrong".
 fn extract_sheet_id(input: &str) -> Result<String, SheetIdError> {
-    let candidate = match input.split("/d/").nth(1) {
+    let input = input.trim();
+    // A Forms URL also has a "/d/<id>/" segment — only a Sheets URL's
+    // "/spreadsheets/d/<id>/" counts, otherwise a pasted Form link (the
+    // mistake is real: it happened once already) would silently extract
+    // the Form's own id and look like a valid Sheet id.
+    if input.contains("/forms/d/") {
+        return Err(SheetIdError::InvalidFormat);
+    }
+    let candidate = match input.split("/spreadsheets/d/").nth(1) {
         Some(after) => after.split('/').next().unwrap_or(""),
+        None if input.contains("://") => "",
         None => input,
     };
     let candidate = candidate.trim();
@@ -320,12 +329,23 @@ mod tests {
 
     #[test]
     fn extract_sheet_id_rejects_a_non_sheet_url() {
-        // A Forms edit URL has no /d/<id>/ segment matching a Sheet id shape
-        // the same way — but more importantly, anything with a raw slash
-        // left in it must be rejected rather than breaking SheetsClient's
-        // URL building downstream.
+        // Anything with a raw slash left in it must be rejected rather than
+        // breaking SheetsClient's URL building downstream.
         assert!(extract_sheet_id("https://example.com/not/a/sheet").is_err());
         assert!(extract_sheet_id("has/a/slash").is_err());
         assert!(extract_sheet_id("").is_err());
+    }
+
+    #[test]
+    fn extract_sheet_id_rejects_a_pasted_forms_url() {
+        // Real mistake, made once already in this project: the Form's edit
+        // URL also has a "/d/<id>/" segment, so a naive extractor would
+        // happily return the Form's own id as if it were the Sheet's.
+        let forms_url =
+            "https://docs.google.com/forms/d/1_jZpyQjBAB6_6MSR-_UudarFoDqQ3UNrbEU03WzxCS0/edit";
+        assert!(matches!(
+            extract_sheet_id(forms_url),
+            Err(SheetIdError::InvalidFormat)
+        ));
     }
 }

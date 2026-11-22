@@ -244,7 +244,9 @@ async fn sheet_id_without_bloc_is_rejected() {
     let mut bad = input("Indiv", Some("some-sheet"));
     bad.bloc_formulaire = None;
 
-    let err = create_evenement(&pool, None, admin_id, bad).await.unwrap_err();
+    let err = create_evenement(&pool, None, admin_id, bad)
+        .await
+        .unwrap_err();
     assert!(matches!(
         err,
         SaveEvenementError::Bloc(benefrance_backend::evenements::BlocError::Missing)
@@ -259,7 +261,9 @@ async fn unknown_bloc_is_rejected() {
     let mut bad = input("Indiv", Some("some-sheet"));
     bad.bloc_formulaire = Some("form_2099_made_up".to_string());
 
-    let err = create_evenement(&pool, None, admin_id, bad).await.unwrap_err();
+    let err = create_evenement(&pool, None, admin_id, bad)
+        .await
+        .unwrap_err();
     assert!(matches!(
         err,
         SaveEvenementError::Bloc(benefrance_backend::evenements::BlocError::Unknown(_))
@@ -271,13 +275,23 @@ async fn two_events_cannot_claim_the_same_bloc_on_the_same_sheet() {
     let pool = spawn_test_db().await;
     let admin_id = insert_admin(&pool).await;
 
-    create_evenement(&pool, None, admin_id, input("Indiv 1", Some("shared-sheet")))
-        .await
-        .unwrap();
+    create_evenement(
+        &pool,
+        None,
+        admin_id,
+        input("Indiv 1", Some("shared-sheet")),
+    )
+    .await
+    .unwrap();
 
-    let err = create_evenement(&pool, None, admin_id, input("Indiv 2", Some("shared-sheet")))
-        .await
-        .unwrap_err();
+    let err = create_evenement(
+        &pool,
+        None,
+        admin_id,
+        input("Indiv 2", Some("shared-sheet")),
+    )
+    .await
+    .unwrap_err();
     assert!(matches!(
         err,
         SaveEvenementError::Bloc(benefrance_backend::evenements::BlocError::AlreadyUsed(_))
@@ -300,7 +314,9 @@ async fn archiving_an_unknown_id_is_not_found() {
     let pool = spawn_test_db().await;
     let admin_id = insert_admin(&pool).await;
 
-    let err = set_archive(&pool, admin_id, Uuid::new_v4(), true).await.unwrap_err();
+    let err = set_archive(&pool, admin_id, Uuid::new_v4(), true)
+        .await
+        .unwrap_err();
     assert!(matches!(
         err,
         benefrance_backend::evenements::SetArchiveError::NotFound
@@ -312,15 +328,27 @@ async fn unarchiving_into_a_bloc_conflict_is_rejected() {
     let pool = spawn_test_db().await;
     let admin_id = insert_admin(&pool).await;
 
-    let archived_id = create_evenement(&pool, None, admin_id, input("Indiv archivé", Some("shared-sheet")))
+    let archived_id = create_evenement(
+        &pool,
+        None,
+        admin_id,
+        input("Indiv archivé", Some("shared-sheet")),
+    )
+    .await
+    .unwrap();
+    set_archive(&pool, admin_id, archived_id, true)
         .await
         .unwrap();
-    set_archive(&pool, admin_id, archived_id, true).await.unwrap();
 
     // A new event takes the same bloc while the first is archived — legal.
-    create_evenement(&pool, None, admin_id, input("Indiv actif", Some("shared-sheet")))
-        .await
-        .unwrap();
+    create_evenement(
+        &pool,
+        None,
+        admin_id,
+        input("Indiv actif", Some("shared-sheet")),
+    )
+    .await
+    .unwrap();
 
     // Unarchiving the first must not silently recreate the conflict.
     let err = set_archive(&pool, admin_id, archived_id, false)
