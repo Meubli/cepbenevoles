@@ -72,9 +72,10 @@ Les libellés du form (section 3.1, "Poste(s) souhaité(s)") ne sont **pas inter
 
 ### 3.3 Synchronisation automatique
 
-- Le Google Form est lié à une Google Sheet de réponses.
-- Un service account accède à cette Sheet via l'API Google Sheets.
-- Synchronisation : job planifié (ex. toutes les 10-15 min) **+** bouton "Synchroniser maintenant" côté admin.
+- Chaque `Evenement` a son propre `sheet_id` (nullable), configuré par l'admin (écran Événements) — pas d'ID de Sheet global unique dans l'app. Plusieurs événements peuvent partager la **même** Sheet (cas 2027 : un seul Form/une seule Sheet couvre France Indiv et TeamGym, chaque événement ayant ses propres sections de disponibilité dans la même feuille) ; ils ont alors simplement la même valeur de `sheet_id`, sans table de liaison dédiée.
+- Un même service account (un seul, cf. `technical-specs.md` §1) accède à toutes les Sheets, via l'API Google Sheets — chaque Sheet doit lui être partagée individuellement par l'admin.
+- Synchronisation : job planifié (ex. toutes les 10-15 min) **+** bouton "Synchroniser maintenant" côté admin — regroupe les événements actifs (non archivés) par `sheet_id` distinct, lit chaque Sheet une seule fois même si plusieurs événements la partagent, puis répartit les lignes par événement selon les sections de disponibilité/souhaits propres à chacun.
+- Un événement sans `sheet_id` renseigné n'est jamais synchronisé automatiquement (seule la saisie manuelle, cf. 3.4, reste possible pour lui).
 - Chaque ligne de la Sheet = une **soumission**. Clé d'import = (row index Sheet + horodatage de réponse) pour ne jamais réimporter deux fois la même ligne.
 - Décision actée : **pas de dédoublonnage automatique** entre soumissions (une personne qui soumet deux fois crée deux soumissions distinctes). L'admin pourra marquer manuellement deux soumissions comme doublon/fusionnées dans le planning (cf. 9).
 - Les souhaits de commission sont résolus via l'écran "Mapping form" (cf. 3.2), pas par correspondance automatique de texte.
@@ -255,7 +256,7 @@ Pour un événement donné, l'admin peut désigner un ou plusieurs bénévoles c
 
 ## 8. Modèle de données (entités pressenties)
 
-- `Evenement` (nom, dates, archive: bool — défaut faux, cf. 12.6)
+- `Evenement` (nom, dates, archive: bool — défaut faux, cf. 12.6, sheet_id: text nullable — ID de la Google Sheet source, cf. 3.3)
 - `CreneauApplicatif` (evenement, commission nullable — renseigné seulement pour la grille propre d'une commission, jour, heure\_debut, heure\_fin, ordre)
 - `MappingCreneauForm` (evenement, jour, libelle\_form \[matin/midi/aprem/soir\] → liste de CreneauApplicatif)
 - `Commission` (nom, actif, prerequis\_libre\_texte, a\_des\_postes: bool, grille\_creneaux \[generale|propre\], besoin\_chiffre: bool, couleur — aléatoire à la création, modifiable)

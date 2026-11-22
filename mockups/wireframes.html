@@ -817,13 +817,19 @@ table.plan th:first-child{background:var(--accent-weak); z-index:2}
 <!-- SCREEN 6 -->
 <section class="screen" id="s6">
   <div class="screen-head"><h2>Admin — synchro Google Form</h2><span class="screen-tag">Import des soumissions</span></div>
-  <p class="note">Suivi de la synchronisation avec la Google Sheet de réponses et accès à l'envoi manuel des plannings.</p>
+  <p class="note">Suivi de la synchronisation, par Google Sheet source (cf. écran Événements — plusieurs événements actifs peuvent partager la même Sheet, lue une seule fois), et accès à l'envoi manuel des plannings.</p>
 
-  <div class="sync-status">
-    <div class="stat-wf wf"><div class="stat-num">312</div><div class="stat-lbl">soumissions importées</div></div>
-    <div class="stat-wf wf"><div class="stat-num">+7</div><div class="stat-lbl">depuis la dernière synchro</div></div>
-    <div class="stat-wf wf"><div class="stat-num">09:41</div><div class="stat-lbl">dernière synchro</div></div>
-    <div class="stat-wf wf" style="border-color:var(--accent)"><div class="stat-num" style="color:var(--accent)">3</div><div class="stat-lbl">libellés de souhait non mappés</div></div>
+  <div class="panel wf" style="margin-bottom:16px">
+    <div class="toolbar-row" style="margin-top:0; justify-content:space-between">
+      <h3 style="margin:0">Sheet 1VanRtL…sm3jsc <span class="wf-label">— France Indiv GAM/GAF, TeamGym Performance</span></h3>
+      <button class="btn-wf primary">Synchroniser maintenant</button>
+    </div>
+    <div class="sync-status" style="margin:10px 0 0">
+      <div class="stat-wf wf"><div class="stat-num">312</div><div class="stat-lbl">soumissions importées</div></div>
+      <div class="stat-wf wf"><div class="stat-num">+7</div><div class="stat-lbl">depuis la dernière synchro</div></div>
+      <div class="stat-wf wf"><div class="stat-num">09:41</div><div class="stat-lbl">dernière synchro</div></div>
+      <div class="stat-wf wf" style="border-color:var(--accent)"><div class="stat-num" style="color:var(--accent)">3</div><div class="stat-lbl">libellés de souhait non mappés</div></div>
+    </div>
   </div>
 
   <div class="panel wf" style="margin-bottom:16px; border-color:var(--accent)">
@@ -1207,19 +1213,28 @@ table.plan th:first-child{background:var(--accent-weak); z-index:2}
       </div>
 
       <div class="comm-row">
-        <div class="comm-main"><span style="font-weight:600">France Indiv Perf GAM/GAF</span><span class="wf-label">29 avril – 4 mai 2027 · Parc des Expositions de Poitiers</span></div>
+        <div class="comm-main"><span style="font-weight:600">France Indiv Perf GAM/GAF</span><span class="wf-label">29 avril – 4 mai 2027 · Parc des Expositions de Poitiers</span><span class="wf-label">Sheet source : 1VanRtL…sm3jsc <span class="optional-tag">(partagée avec les 2 événements 2027)</span></span></div>
         <div class="comm-meta"><span class="pill">actif</span><button class="btn-wf">Modifier</button><button class="btn-wf danger">Archiver</button></div>
       </div>
       <div class="comm-row">
-        <div class="comm-main"><span style="font-weight:600">France TeamGym Performance</span><span class="wf-label">11 – 15 juin 2027 · Arena Futuroscope</span></div>
+        <div class="comm-main"><span style="font-weight:600">France TeamGym Performance</span><span class="wf-label">11 – 15 juin 2027 · Arena Futuroscope</span><span class="wf-label">Sheet source : 1VanRtL…sm3jsc <span class="optional-tag">(partagée avec les 2 événements 2027)</span></span></div>
         <div class="comm-meta"><span class="pill">actif</span><button class="btn-wf">Modifier</button><button class="btn-wf danger">Archiver</button></div>
       </div>
       <div class="comm-row">
-        <div class="comm-main"><span style="font-weight:600; color:var(--muted)">Championnats régionaux 2025</span><span class="wf-label">12 – 13 avril 2025 · Poitiers</span></div>
+        <div class="comm-main"><span style="font-weight:600; color:var(--muted)">Championnats régionaux 2025</span><span class="wf-label">12 – 13 avril 2025 · Poitiers</span><span class="wf-label" style="color:var(--accent)">Aucune sheet source — saisie manuelle uniquement</span></div>
         <div class="comm-meta"><span class="pill" style="border-color:var(--muted)">archivé</span><button class="btn-wf primary">Désarchiver</button></div>
       </div>
 
       <p class="note" style="margin-top:14px">Un événement archivé n'apparaît plus dans les sélecteurs d'événement des autres écrans (Planning, Besoins, Créneaux, Commissions à grille propre, Synchro, Mapping form, Générer planning, Responsables) — seul cet écran continue de le lister.</p>
+
+      <div style="margin-top:22px; padding-top:16px; border-top:1px solid var(--line)">
+        <h3>Modifier — France Indiv Perf GAM/GAF</h3>
+        <div class="field-grid" style="margin-top:12px">
+          <div class="field wf"><span class="wf-label">Nom</span><span class="input-wf wf" style="display:flex;align-items:center;padding:0 8px">France Indiv Perf GAM/GAF</span></div>
+          <div class="field wf"><span class="wf-label">ID Google Sheet source <span class="optional-tag">— facultatif, plusieurs événements peuvent partager le même ID</span></span><span class="input-wf wf" style="display:flex;align-items:center;padding:0 8px">1VanRtLnS2lF5XpUtUpjyv9MX2lQh7EPcAZCIPsm3jsc</span></div>
+        </div>
+        <p class="note" style="margin-top:10px">Sans ID renseigné, l'événement n'est jamais synchronisé automatiquement (seule la saisie manuelle de bénévole reste possible, cf. spec §3.4).</p>
+      </div>
 
       <div style="margin-top:22px; padding-top:16px; border-top:1px solid var(--line)">
         <h3>Nouvel événement</h3>
