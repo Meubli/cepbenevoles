@@ -127,6 +127,13 @@
 .pill.archived {
 	border-color: var(--muted);
 }
+.pill.unmapped {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.comm-row.unmapped {
+	border-top-color: var(--accent);
+}
 
 .toolbar-row {
 	display: flex;

@@ -62,7 +62,7 @@ test('an admin maps a pending label to a commission from the Mapping screen', as
 
 	await page.goto('/mapping');
 
-	const row = page.locator('tr', { hasText: libelle });
+	const row = page.locator('[data-testid="mapping-row"]', { hasText: libelle });
 	await expect(row).toContainText('non mappé');
 
 	await row.getByRole('button', { name: 'Associer' }).click();

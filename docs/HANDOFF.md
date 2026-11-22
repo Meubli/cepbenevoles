@@ -128,12 +128,24 @@ duplique pas, il dit où on en est par rapport à elles.
   les 8 autres s'affichent désactivées (pas de lien mort, pas un mensonge sur
   ce qui marche) — décision prise avec l'utilisateur. `/evenements` reprend
   la liste en `comm-row`/`comm-main`/`comm-meta` + formulaires en
-  `field-grid` de l'écran s11 ; `/mapping` hérite du même shell (fond, nav,
-  police) mais son propre contenu reste non stylé (pas demandé). e2e
-  Événements adapté : la ligne d'événement n'est plus un `<tr>` (liste en
-  divs, pas une table) — `e2e/tests/evenements.spec.ts` cible maintenant
+  `field-grid` de l'écran s11. e2e Événements adapté : la ligne d'événement
+  n'est plus un `<tr>` (liste en divs, pas une table) —
+  `e2e/tests/evenements.spec.ts` cible maintenant
   `[data-testid="evenement-row"]`. Vérifié dans le navigateur (création
   d'événement + nav cliquée vers `/mapping`) et e2e (8/8 verts).
+- **Écran Mapping restylé** (écran s10) : barre recherche + filtre
+  "Tous"/"Non mappés (N)" (purement client, filtre `rows` déjà chargées, pas
+  de nouvel endpoint), liste en `comm-row` (bordure teintée `--accent` +
+  pill "non mappé" pour les libellés en attente, cf. mockup), formulaire
+  d'association en `field-grid` sous la ligne concernée. Écart assumé par
+  rapport à la maquette : pas de boutons de commission colorés par couleur
+  propre (`--c-accueil` etc.) — ces couleurs sont décrites comme assignées
+  depuis l'écran Commissions (§5.4, pas encore construit) et l'API
+  `/commissions` ne renvoie aucune couleur aujourd'hui ; les boutons
+  commission/poste restent de simples `btn-wf`. `e2e/tests/mapping.spec.ts`
+  adapté (`<tr>` → `[data-testid="mapping-row"]`, même raison que
+  Événements). Vérifié en e2e (8/8) ; vérifié dans le navigateur à vide (DB
+  dev sans libellé synchronisé pour l'instant).
 
 Compteurs : ~70 tests Rust (unitaires + intégration, +1 depuis le dernier
 comptage pour `SHEET_VALIDATION`), 8 tests Playwright e2e, tous verts au
@@ -167,10 +179,18 @@ dernier run.
 9. **Écran Commissions** (créer/éditer commissions et postes à la main) —
    n'existe pas, le référentiel n'est modifiable que par migration SQL pour
    l'instant.
-10. ~~`/evenements` ne reprenait pas la maquette~~ — **fait** (voir plus
-    bas) : shell admin partagé + sidebar nav, `/evenements` restylé.
-    **`/mapping` reste non stylé** (hérite juste du shell/fond/police) — pas
-    demandé pour l'instant.
+10. ~~`/evenements` et `/mapping` ne reprenaient pas la maquette~~ — **fait**
+    (voir plus bas) : shell admin partagé + sidebar nav, les deux écrans
+    restylés (s11/s10). Écart assumé sur Mapping : pas de boutons
+    commission colorés par couleur propre (couleur pas encore renvoyée par
+    l'API, cf. "Fait" ci-dessus).
+
+Toutes les pages existantes (connexion, événements, mapping) sont
+maintenant restylées sur la maquette. Reste, côté maquette : les écrans
+qui n'existent pas encore dans l'appli du tout (Besoins, Créneaux,
+Commissions, Bénévoles, Synchro form, Générer planning, Admins,
+Responsables) — pas un restyle, une construction d'écran complète,
+hors scope ici.
 
 ## Prochaines étapes, dans l'ordre discuté avec l'utilisateur
 
@@ -180,11 +200,10 @@ dernier run.
    (voir plus bas) ; déconnexion et expiration glissante restent (points 6, 7).
 4. ~~Petites corrections (`SHEET_VALIDATION`, `validate_bloc`, e2e
    Événements)~~ — fait (voir plus bas).
-5. ~~Restyle écran Événements (+ shell admin partagé)~~ — fait (voir plus bas).
+5. ~~Restyle écrans Événements + Mapping (+ shell admin partagé)~~ — fait
+   (voir plus bas).
 6. Rate limiting (DB, décider header IP).
 7. Déconnexion + expiration glissante (points 6, 7 ci-dessus).
-8. Éventuellement restyler `/mapping` (actuellement juste dans le shell,
-   contenu toujours non stylé).
 
 ## Commandes utiles
 
