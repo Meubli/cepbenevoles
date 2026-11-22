@@ -76,6 +76,7 @@ Les libellés du form (section 3.1, "Poste(s) souhaité(s)") ne sont **pas inter
 - Un même service account (un seul, cf. `technical-specs.md` §1) accède à toutes les Sheets, via l'API Google Sheets — chaque Sheet doit lui être partagée individuellement par l'admin.
 - Synchronisation : job planifié (ex. toutes les 10-15 min) **+** bouton "Synchroniser maintenant" côté admin — regroupe les événements actifs (non archivés) par `sheet_id` distinct, lit chaque Sheet une seule fois même si plusieurs événements la partagent, puis répartit les lignes par événement selon les sections de disponibilité/souhaits propres à chacun.
 - Un événement sans `sheet_id` renseigné n'est jamais synchronisé automatiquement (seule la saisie manuelle, cf. 3.4, reste possible pour lui).
+- Quand une Sheet contient plusieurs blocs (cas 2027 : un seul form, sections Indiv + TeamGym), chaque événement précise en plus un `bloc_formulaire` (ex. `form_2027_indiv`, `form_2027_teamgym`) qui dit au parseur quelle section de la ligne lui appartient. La correspondance `sheet_id` + `bloc_formulaire` → colonnes à lire est codée par formulaire (un nouveau form = un nouveau code, pas un écran de mapping générique, cf. décision technique) ; l'écran Événements proposera, pour un `sheet_id` déjà connu, le choix du bloc parmi ceux que le code sait lire pour cette Sheet.
 - **Validation à l'enregistrement** : saisir/modifier `sheet_id` sur un `Evenement` (possible dès l'écran de création, pas seulement en modification) déclenche un appel réel à l'API Google Sheets (lecture d'une plage minimale) avant d'accepter l'enregistrement.
   - Sheet introuvable (404) → échec, message \"Cette Sheet n'existe pas ou son ID est incorrect\".
   - Sheet existante mais non partagée avec le service account (403) → échec, message distinct \"Sheet trouvée mais non partagée avec le compte de service — partagez-la en lecture d'abord\" (avec rappel de l'email du service account).
@@ -261,14 +262,15 @@ Pour un événement donné, l'admin peut désigner un ou plusieurs bénévoles c
 
 ## 8. Modèle de données (entités pressenties)
 
-- `Evenement` (nom, dates, archive: bool — défaut faux, cf. 12.6, sheet_id: text nullable — ID de la Google Sheet source, cf. 3.3)
+- `Evenement` (nom, dates, archive: bool — défaut faux, cf. 12.6, sheet_id: text nullable — ID de la Google Sheet source, cf. 3.3, bloc_formulaire: text nullable — identifie quel bloc du formulaire source alimente cet événement quand plusieurs événements partagent un même `sheet_id`, cf. 3.3)
 - `CreneauApplicatif` (evenement, commission nullable — renseigné seulement pour la grille propre d'une commission, jour, heure\_debut, heure\_fin, ordre)
 - `MappingCreneauForm` (evenement, jour, libelle\_form \[matin/midi/aprem/soir\] → liste de CreneauApplicatif)
 - `Commission` (nom, actif, prerequis\_libre\_texte, a\_des\_postes: bool, grille\_creneaux \[generale|propre\], besoin\_chiffre: bool, couleur — aléatoire à la création, modifiable)
 - `BesoinCommission` (evenement, creneau\_applicatif, commission, nb\_requis) — nb\_requis total de la commission sur ce créneau
-- `Soumission` (evenement, nom, prenom, email, telephone, tranche\_age, permis\_b, taille\_tshirt, date\_soumission, row\_source\_id, benevole\_id nullable)
+- `Soumission` (evenement, nom, prenom, email, telephone, tranche\_age, permis\_b, taille\_tshirt, date\_soumission, benevole\_id nullable) — clé d'import unique `(evenement, date_soumission, email)` (cf. 3.3) ; une ligne Sheet couvrant plusieurs événements (cas 2027) produit une `Soumission` par événement auquel le bénévole a répondu favorablement
 - `DisponibiliteSoumission` (soumission, jour, libelle\_form)
-- `SouhaitCommission` (soumission, commission, poste nullable) — poste renseigné quand le souhait du form désignait un poste précis de la commission (cf. 3.1, 5.1)
+- `SoumissionLibelle` (soumission, libelle\_form\_brut) — libellés de souhait bruts, non encore résolus en `SouhaitCommission` ; nécessaire pour le mapping rétroactif (cf. 3.2 : tant qu'un libellé n'est pas mappé, le souhait doit rester disponible pour résolution ultérieure sans réimporter la soumission)
+- `SouhaitCommission` (soumission, commission, poste nullable) — poste renseigné quand le souhait du form désignait un poste précis de la commission (cf. 3.1, 5.1) ; créé à partir d'un `SoumissionLibelle` au moment où son libellé est mappé
 - `MappingSouhaitForm` (libelle\_form, commission nullable, poste nullable) — association admin entre un libellé brut du form et une commission/poste du référentiel ; nullable tant que non mappé (cf. 3.2)
 - `Affectation` (evenement, soumission, creneau\_applicatif, commission, poste nullable, origine \[genere|manuel\], verrouille: bool)
 - `ResponsableCommission` (evenement, commission, benevole) — être responsable n'est pas une `Affectation` : pas de créneau/poste propre, occupation déduite de la grille de la commission (cf. 5.4)

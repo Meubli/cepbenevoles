@@ -471,6 +471,43 @@ mod tests {
     }
 
     #[test]
+    fn pas_de_la_partie_means_no_attendance_for_that_event() {
+        let header = vec![
+            COL_HORODATEUR.to_string(),
+            COL_NOM.to_string(),
+            COL_PRENOM.to_string(),
+            COL_TRANCHE_AGE.to_string(),
+            COL_MAIL.to_string(),
+            COL_TELEPHONE.to_string(),
+            COL_PERMIS_B.to_string(),
+            COL_TAILLE_TSHIRT.to_string(),
+            COL_SEREZ_INDIV.to_string(),
+            "➡️ Disponibilités JEUDI 29 avril".to_string(),
+            COL_SEREZ_TEAMGYM.to_string(),
+            "➡️ Disponibilités VENDREDI 11 juin".to_string(),
+        ];
+        let row = vec![
+            "22/11/2026 14:37:06".to_string(),
+            "Durand".to_string(),
+            "Alex".to_string(),
+            "18 ans et +".to_string(),
+            "alex.durand.test@example.com".to_string(),
+            "0600000042".to_string(),
+            "Oui".to_string(),
+            "M".to_string(),
+            "Pas de la partie".to_string(),
+            "".to_string(),
+            "Bien sûr je suis disponible pour vous prêter main forte".to_string(),
+            "Vendredi matin".to_string(),
+        ];
+
+        let parsed = parse_row(&header, &row, 1).expect("row should parse");
+
+        assert_eq!(parsed.attendances.len(), 1, "only TeamGym attended");
+        assert_eq!(parsed.attendances[0].evenement, EventSlug::TeamGym);
+    }
+
+    #[test]
     fn invalid_horodateur_is_a_row_error() {
         let (header, rows) = fixture();
         let mut bad_row = rows[0].clone();

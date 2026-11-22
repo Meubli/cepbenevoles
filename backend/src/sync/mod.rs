@@ -7,6 +7,7 @@
 //! those are separate concerns, built on top of this.
 
 pub mod form_2027;
+pub mod persist;
 
 use chrono::{DateTime, NaiveDate, Utc};
 
@@ -18,7 +19,21 @@ pub enum TrancheAge {
     Age18Plus,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+impl TrancheAge {
+    /// The exact label stored in the database — matches the real form's
+    /// option text (cf. form_2027.rs), so the Événements/Bénévoles screens
+    /// can display it as-is without a lookup table.
+    pub fn label(self) -> &'static str {
+        match self {
+            TrancheAge::Age10To12 => "10 - 12 ans",
+            TrancheAge::Age13To14 => "13 - 14 ans",
+            TrancheAge::Age15To17 => "15 - 17 ans",
+            TrancheAge::Age18Plus => "18 ans et +",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EventSlug {
     IndivGamGaf,
     TeamGym,
