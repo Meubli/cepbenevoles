@@ -1,6 +1,7 @@
 // Thin fetch wrapper used by every admin screen (technical-specs.md §11 for
 // correlation ids, specs.md §11 for the session cookie).
 import { browser } from '$app/env';
+import { clientId } from '#lib/live';
 
 export class ApiError extends Error {
 	status: number;
@@ -24,7 +25,13 @@ type RequestOptions = RequestInit & {
 async function request<T>(path: string, init?: RequestOptions): Promise<T> {
 	const response = await fetch(`/api${path}`, {
 		credentials: 'include',
-		headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+		headers: {
+			'Content-Type': 'application/json',
+			// Relayed back as the live event's `origin` (technical-specs.md §10)
+			// so this tab can skip refetching on the echo of its own change.
+			'X-Client-Id': clientId,
+			...(init?.headers ?? {})
+		},
 		...init
 	});
 

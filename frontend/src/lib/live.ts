@@ -10,6 +10,20 @@ type Listener = { tags: string[]; cb: () => void };
 
 const listeners = new Set<Listener>();
 
+// A random id for this browser tab, sent as `X-Client-Id` on every API
+// request (api.ts) and echoed back by the server as the live event's
+// `origin`. Lets this tab skip refetching on its own echo — it already
+// refetched locally right after its own mutation — while every other tab
+// (different id) still refetches normally. Not an identity: random per tab,
+// unrelated to the logged-in admin.
+export const clientId: string = (() => {
+	try {
+		return crypto.randomUUID();
+	} catch {
+		return Math.random().toString(36).slice(2);
+	}
+})();
+
 let socket: WebSocket | null = null;
 let reconnectDelayMs = 1000;
 const MAX_RECONNECT_DELAY_MS = 15000;
@@ -33,7 +47,26 @@ function connect() {
 	});
 
 	socket.addEventListener('message', (event) => {
-		if (typeof event.data === 'string') dispatch(event.data);
+		if (typeof event.data !== 'string') return;
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(event.data);
+		} catch {
+			return;
+		}
+		if (
+			typeof parsed !== 'object' ||
+			parsed === null ||
+			!('tag' in parsed) ||
+			typeof parsed.tag !== 'string'
+		) {
+			return;
+		}
+		const origin = 'origin' in parsed ? parsed.origin : null;
+		// Skip this tab's own echo (see `clientId` above) — it already
+		// refetched locally right after making the change.
+		if (origin === clientId) return;
+		dispatch(parsed.tag);
 	});
 
 	socket.addEventListener('close', () => {

@@ -76,7 +76,7 @@
 				failed.length > 0
 					? `Synchronisation terminée, ${failed.length} Sheet(s) en échec (voir ci-dessous).`
 					: 'Synchronisation terminée.';
-			await load();
+			await refresh();
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
 		} finally {

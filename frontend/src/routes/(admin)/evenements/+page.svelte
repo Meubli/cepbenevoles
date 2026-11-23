@@ -113,7 +113,7 @@
 		try {
 			await api.patch(`/evenements/${id}`, toBody(editForm));
 			editingId = null;
-			await load();
+			await refresh();
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
 		}
@@ -123,7 +123,7 @@
 		error = null;
 		try {
 			await api.patch(`/evenements/${e.id}/archive`, { archive: !e.archive });
-			await load();
+			await refresh();
 		} catch (e2) {
 			error = e2 instanceof ApiError ? e2.message : 'Erreur inattendue';
 		}
@@ -139,97 +139,173 @@
 			await api.post('/evenements', toBody(createForm));
 			creating = false;
 			createForm = emptyForm();
-			await load();
+			await refresh();
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
 		}
 	}
 </script>
 
-<div class="toolbar-row" style="margin-top:0">
-	<h3>Événements ({events.length})</h3>
-	{#if !creating}
-		<button class="btn-wf primary" onclick={() => (creating = true)}>+ Nouvel événement</button>
+<div class="panel wf">
+	<div class="toolbar-row" style="margin-top:0">
+		<h3>Événements ({events.length})</h3>
+		{#if !creating}
+			<button class="btn-wf primary" onclick={() => (creating = true)}>+ Nouvel événement</button>
+		{/if}
+	</div>
+	<p class="note">
+		Archiver un événement le masque des écrans actifs sans le rendre lecture seule (cf. specs.md
+		§12.6).
+	</p>
+
+	{#if error}
+		<p role="alert" class="error-note">{error}</p>
 	{/if}
-</div>
-<p class="note">
-	Archiver un événement le masque des écrans actifs sans le rendre lecture seule (cf. specs.md
-	§12.6).
-</p>
 
-{#if error}
-	<p role="alert" class="error-note">{error}</p>
-{/if}
-
-{#if loading}
-	<p>Chargement…</p>
-{:else}
-	{#each events as e (e.id)}
-		<div class="comm-row" data-testid="evenement-row" data-nom={e.nom}>
-			<div class="comm-main">
-				<span style="font-weight:600">{e.nom}</span>
-				<span class="wf-label">{e.date_debut} – {e.date_fin}{e.lieu ? ` · ${e.lieu}` : ''}</span>
-				<span class="wf-label">
-					{#if e.sheet_id}
-						Sheet source : {e.sheet_id}
-					{:else}
-						<span style="color:var(--accent)">
-							Aucune sheet source — saisie manuelle uniquement
-						</span>
-					{/if}
-				</span>
+	{#if loading}
+		<p>Chargement…</p>
+	{:else}
+		{#each events as e (e.id)}
+			<div class="comm-row" data-testid="evenement-row" data-nom={e.nom}>
+				<div class="comm-main">
+					<span style="font-weight:600">{e.nom}</span>
+					<span class="wf-label">{e.date_debut} – {e.date_fin}{e.lieu ? ` · ${e.lieu}` : ''}</span>
+					<span class="wf-label">
+						{#if e.sheet_id}
+							Sheet source : {e.sheet_id}
+						{:else}
+							<span style="color:var(--accent)">
+								Aucune sheet source — saisie manuelle uniquement
+							</span>
+						{/if}
+					</span>
+				</div>
+				<div class="comm-meta">
+					<span class="pill" class:archived={e.archive}>{e.archive ? 'archivé' : 'actif'}</span>
+					<button class="btn-wf" onclick={() => startEditing(e)}>Modifier</button>
+					<button
+						class="btn-wf"
+						class:danger={!e.archive}
+						class:primary={e.archive}
+						onclick={() => toggleArchive(e)}
+					>
+						{e.archive ? 'Désarchiver' : 'Archiver'}
+					</button>
+				</div>
 			</div>
-			<div class="comm-meta">
-				<span class="pill" class:archived={e.archive}>{e.archive ? 'archivé' : 'actif'}</span>
-				<button class="btn-wf" onclick={() => startEditing(e)}>Modifier</button>
-				<button
-					class="btn-wf"
-					class:danger={!e.archive}
-					class:primary={e.archive}
-					onclick={() => toggleArchive(e)}
-				>
-					{e.archive ? 'Désarchiver' : 'Archiver'}
-				</button>
-			</div>
-		</div>
 
-		{#if editingId === e.id}
-			<div style="margin-top:12px; padding-top:16px; border-top:1px solid var(--line)">
-				<h3>Modifier — {e.nom}</h3>
+			{#if editingId === e.id}
+				<div style="margin-top:12px; padding-top:16px; border-top:1px solid var(--line)">
+					<h3>Modifier — {e.nom}</h3>
+					<div class="field-grid">
+						<div class="field wf">
+							<label>
+								Nom
+								<input class="input-wf" bind:value={editForm.nom} maxlength="200" required />
+							</label>
+						</div>
+						<div class="field wf">
+							<label>
+								Date début
+								<input class="input-wf" type="date" bind:value={editForm.date_debut} required />
+							</label>
+						</div>
+						<div class="field wf">
+							<label>
+								Date fin
+								<input class="input-wf" type="date" bind:value={editForm.date_fin} required />
+							</label>
+						</div>
+						<div class="field wf">
+							<label>
+								Lieu
+								<input class="input-wf" bind:value={editForm.lieu} maxlength="200" />
+							</label>
+						</div>
+						<div class="field wf">
+							<label>
+								ID Google Sheet source <span class="optional-tag">— facultatif</span>
+								<input
+									class="input-wf"
+									bind:value={editForm.sheet_id}
+									list="sheet-id-suggestions"
+								/>
+							</label>
+							{#if editForm.sheet_id}
+								<label>
+									Bloc du formulaire
+									<select class="input-wf" bind:value={editForm.bloc_formulaire}>
+										<option value="">— bloc du formulaire —</option>
+										{#each blocs as b (b.value)}
+											<option value={b.value}>{b.label}</option>
+										{/each}
+									</select>
+								</label>
+							{/if}
+						</div>
+					</div>
+					<button class="btn-wf primary" style="margin-top:12px" onclick={() => saveEdit(e.id)}>
+						Enregistrer
+					</button>
+					<button class="btn-wf" style="margin-top:12px" onclick={() => (editingId = null)}>
+						Annuler
+					</button>
+				</div>
+			{/if}
+		{/each}
+
+		<datalist id="sheet-id-suggestions">
+			{#each sheetIdSuggestions() as s (s.sheetId)}
+				<option value={s.sheetId}>{s.sheetId} — utilisé par {s.eventNames}</option>
+			{/each}
+		</datalist>
+
+		<p class="note" style="margin-top:14px">
+			Un événement archivé n'apparaît plus dans les sélecteurs d'événement des autres écrans (seul
+			cet écran continue de le lister).
+		</p>
+
+		{#if creating}
+			<div style="margin-top:22px; padding-top:16px; border-top:1px solid var(--line)">
+				<h3>Nouvel événement</h3>
 				<div class="field-grid">
 					<div class="field wf">
 						<label>
 							Nom
-							<input class="input-wf" bind:value={editForm.nom} maxlength="200" required />
+							<input class="input-wf" bind:value={createForm.nom} maxlength="200" required />
 						</label>
 					</div>
 					<div class="field wf">
 						<label>
 							Date début
-							<input class="input-wf" type="date" bind:value={editForm.date_debut} required />
+							<input class="input-wf" type="date" bind:value={createForm.date_debut} required />
 						</label>
 					</div>
 					<div class="field wf">
 						<label>
 							Date fin
-							<input class="input-wf" type="date" bind:value={editForm.date_fin} required />
+							<input class="input-wf" type="date" bind:value={createForm.date_fin} required />
 						</label>
 					</div>
 					<div class="field wf">
 						<label>
 							Lieu
-							<input class="input-wf" bind:value={editForm.lieu} maxlength="200" />
+							<input class="input-wf" bind:value={createForm.lieu} maxlength="200" />
 						</label>
 					</div>
 					<div class="field wf">
 						<label>
 							ID Google Sheet source <span class="optional-tag">— facultatif</span>
-							<input class="input-wf" bind:value={editForm.sheet_id} list="sheet-id-suggestions" />
+							<input
+								class="input-wf"
+								bind:value={createForm.sheet_id}
+								list="sheet-id-suggestions"
+							/>
 						</label>
-						{#if editForm.sheet_id}
+						{#if createForm.sheet_id}
 							<label>
 								Bloc du formulaire
-								<select class="input-wf" bind:value={editForm.bloc_formulaire}>
+								<select class="input-wf" bind:value={createForm.bloc_formulaire}>
 									<option value="">— bloc du formulaire —</option>
 									{#each blocs as b (b.value)}
 										<option value={b.value}>{b.label}</option>
@@ -239,79 +315,13 @@
 						{/if}
 					</div>
 				</div>
-				<button class="btn-wf primary" style="margin-top:12px" onclick={() => saveEdit(e.id)}>
-					Enregistrer
-				</button>
-				<button class="btn-wf" style="margin-top:12px" onclick={() => (editingId = null)}>
-					Annuler
-				</button>
+				<p class="note" style="margin-top:10px">
+					Autocomplétion sur les <code>sheet_id</code> déjà utilisés par des événements non archivés ;
+					champ libre, toute nouvelle valeur reste acceptée après vérification d'accès.
+				</p>
+				<button class="btn-wf primary" onclick={createEvent}>Créer l'événement</button>
+				<button class="btn-wf" onclick={() => (creating = false)}>Annuler</button>
 			</div>
 		{/if}
-	{/each}
-
-	<datalist id="sheet-id-suggestions">
-		{#each sheetIdSuggestions() as s (s.sheetId)}
-			<option value={s.sheetId}>{s.sheetId} — utilisé par {s.eventNames}</option>
-		{/each}
-	</datalist>
-
-	<p class="note" style="margin-top:14px">
-		Un événement archivé n'apparaît plus dans les sélecteurs d'événement des autres écrans (seul cet
-		écran continue de le lister).
-	</p>
-
-	{#if creating}
-		<div style="margin-top:22px; padding-top:16px; border-top:1px solid var(--line)">
-			<h3>Nouvel événement</h3>
-			<div class="field-grid">
-				<div class="field wf">
-					<label>
-						Nom
-						<input class="input-wf" bind:value={createForm.nom} maxlength="200" required />
-					</label>
-				</div>
-				<div class="field wf">
-					<label>
-						Date début
-						<input class="input-wf" type="date" bind:value={createForm.date_debut} required />
-					</label>
-				</div>
-				<div class="field wf">
-					<label>
-						Date fin
-						<input class="input-wf" type="date" bind:value={createForm.date_fin} required />
-					</label>
-				</div>
-				<div class="field wf">
-					<label>
-						Lieu
-						<input class="input-wf" bind:value={createForm.lieu} maxlength="200" />
-					</label>
-				</div>
-				<div class="field wf">
-					<label>
-						ID Google Sheet source <span class="optional-tag">— facultatif</span>
-						<input class="input-wf" bind:value={createForm.sheet_id} list="sheet-id-suggestions" />
-					</label>
-					{#if createForm.sheet_id}
-						<label>
-							Bloc du formulaire
-							<select class="input-wf" bind:value={createForm.bloc_formulaire}>
-								<option value="">— bloc du formulaire —</option>
-								{#each blocs as b (b.value)}
-									<option value={b.value}>{b.label}</option>
-								{/each}
-							</select>
-						</label>
-					{/if}
-				</div>
-			</div>
-			<p class="note" style="margin-top:10px">
-				Autocomplétion sur les <code>sheet_id</code> déjà utilisés par des événements non archivés ; champ
-				libre, toute nouvelle valeur reste acceptée après vérification d'accès.
-			</p>
-			<button class="btn-wf primary" onclick={createEvent}>Créer l'événement</button>
-			<button class="btn-wf" onclick={() => (creating = false)}>Annuler</button>
-		</div>
 	{/if}
-{/if}
+</div>

@@ -41,6 +41,7 @@
 	font-size: 14px;
 	line-height: 1.5;
 	min-height: 100vh;
+	overflow-x: hidden;
 }
 .admin-main {
 	max-width: 1600px;
@@ -72,8 +73,16 @@
 	align-items: center;
 	gap: 10px;
 	margin-left: auto;
+	min-width: 0;
+	max-width: 100%;
 	font-size: 12px;
 	color: var(--muted);
+}
+.session-email {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
 }
 .role-badge {
 	font-size: 10px;
@@ -280,6 +289,18 @@
 	gap: 2px;
 	padding: 10px;
 }
+@media (max-width: 760px) {
+	.admin-nav {
+		flex-direction: row;
+		gap: 6px;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+	.admin-nav-item {
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+}
 .admin-nav-item {
 	padding: 8px 10px;
 	border-radius: 5px;
@@ -363,6 +384,11 @@ select.input-wf {
 	font-size: 12.5px;
 	gap: 10px;
 }
+@media (max-width: 600px) {
+	.comm-row {
+		flex-wrap: wrap;
+	}
+}
 .comm-row:first-of-type {
 	border-top: none;
 }
@@ -378,4 +404,34 @@ select.input-wf {
 	gap: 6px;
 	align-items: center;
 	flex-wrap: wrap;
+}
+.req-table {
+	border-collapse: collapse;
+	width: 100%;
+	font-size: 12px;
+	margin-top: 10px;
+	min-width: 600px;
+}
+.req-table th,
+.req-table td {
+	border: 1px solid var(--line);
+	padding: 7px 8px;
+	text-align: center;
+}
+.req-table th {
+	background: var(--accent-weak);
+	font-size: 10px;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+.req-table td:first-child,
+.req-table th:first-child {
+	text-align: left;
+	min-width: 160px;
+}
+.req-input {
+	width: 48px;
+	height: 26px;
+	text-align: center;
+	padding: 0;
 }

@@ -147,7 +147,10 @@ fn spawn_scheduler(db: PgPool, sync: SyncContext, interval_seconds: u64, live: l
                     // (lib.rs's emit_live_event) — emit here too, so the
                     // Synchro screen refreshes on its own without a manual
                     // "Synchroniser maintenant" click.
-                    let _ = live.send("sync".to_string());
+                    let _ = live.send(live::LiveEvent {
+                        tag: "sync".to_string(),
+                        origin: None,
+                    });
                 }
                 Err(err) => {
                     tracing::error!(error = %err, "scheduled sync_all_and_record failed");

@@ -92,11 +92,80 @@ async fn a_successful_write_broadcasts_its_resource_tag() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let tag = tokio::time::timeout(Duration::from_secs(1), rx.recv())
+    let event = tokio::time::timeout(Duration::from_secs(1), rx.recv())
         .await
         .expect("a resource tag should have been broadcast")
         .unwrap();
-    assert_eq!(tag, "commissions");
+    assert_eq!(event.tag, "commissions");
+    assert_eq!(event.origin, None);
+}
+
+#[tokio::test]
+async fn a_client_id_header_is_relayed_as_the_event_origin() {
+    let pool = spawn_test_db().await;
+    let token = insert_session(&pool).await;
+    let sender = live::channel();
+    let mut rx = sender.subscribe();
+    let router = app(base_state(pool, sender), None);
+
+    let client_id = Uuid::new_v4();
+    let response = router
+        .oneshot(
+            Request::post("/api/commissions")
+                .header("cookie", format!("session_id={token}"))
+                .header("content-type", "application/json")
+                .header("x-client-id", client_id.to_string())
+                .body(Body::from(commission_body("Sécurité").to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let event = tokio::time::timeout(Duration::from_secs(1), rx.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(event.origin, Some(client_id));
+}
+
+#[tokio::test]
+async fn a_malformed_client_id_header_is_ignored_not_rejected() {
+    let pool = spawn_test_db().await;
+    let token = insert_session(&pool).await;
+    let sender = live::channel();
+    let mut rx = sender.subscribe();
+    let router = app(base_state(pool, sender), None);
+
+    let response = router
+        .oneshot(
+            Request::post("/api/commissions")
+                .header("cookie", format!("session_id={token}"))
+                .header("content-type", "application/json")
+                .header("x-client-id", "not-a-uuid")
+                .body(Body::from(commission_body("Sécurité").to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let event = tokio::time::timeout(Duration::from_secs(1), rx.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(event.origin, None);
+}
+
+fn commission_body(nom: &str) -> serde_json::Value {
+    json!({
+        "nom": nom,
+        "prerequis_libre_texte": null,
+        "a_des_postes": false,
+        "grille_creneaux": "generale",
+        "besoin_chiffre": true,
+        "couleur": "#5ec9a0",
+    })
 }
 
 #[tokio::test]
@@ -159,8 +228,8 @@ async fn a_get_request_does_not_broadcast() {
 /// which `recv()` also surfaces promptly as `Err(RecvError::Closed)`, same
 /// shape as a real send — is not itself evidence of a broadcast: only an
 /// `Ok(tag)` is.
-async fn assert_no_tag_broadcast(mut rx: tokio::sync::broadcast::Receiver<String>) {
-    if let Ok(Ok(tag)) = tokio::time::timeout(Duration::from_millis(300), rx.recv()).await {
-        panic!("unexpected broadcast: {tag}");
+async fn assert_no_tag_broadcast(mut rx: tokio::sync::broadcast::Receiver<live::LiveEvent>) {
+    if let Ok(Ok(event)) = tokio::time::timeout(Duration::from_millis(300), rx.recv()).await {
+        panic!("unexpected broadcast: {}", event.tag);
     }
 }

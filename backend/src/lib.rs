@@ -1,13 +1,16 @@
 pub mod admins;
 pub mod auth;
+pub mod besoins;
 pub mod commissions;
 pub mod config;
 pub mod correlation;
+pub mod creneaux;
 pub mod evenements;
 pub mod google_auth;
 pub mod health;
 pub mod live;
 pub mod mapping;
+pub mod responsables;
 pub mod sheets;
 pub mod sync;
 
@@ -77,6 +80,18 @@ fn api_router() -> Router<AppState> {
             get(mapping::endpoint::list_mapping).post(mapping::endpoint::post_mapping),
         )
         .route(
+            "/besoins/:evenement_id",
+            get(besoins::endpoint::get_besoins),
+        )
+        .route(
+            "/besoins/:evenement_id/commission",
+            patch(besoins::endpoint::patch_besoin_commission),
+        )
+        .route(
+            "/besoins/:evenement_id/poste",
+            patch(besoins::endpoint::patch_besoin_poste),
+        )
+        .route(
             "/commissions",
             get(commissions::endpoint::list_commissions)
                 .post(commissions::endpoint::post_commission),
@@ -92,6 +107,40 @@ fn api_router() -> Router<AppState> {
         .route(
             "/commissions/:id/postes/:poste_id",
             delete(commissions::endpoint::delete_poste),
+        )
+        .route(
+            "/creneaux/:evenement_id",
+            get(creneaux::endpoint::get_creneaux).post(creneaux::endpoint::post_creneau),
+        )
+        .route(
+            "/creneaux/:evenement_id/bornes",
+            patch(creneaux::endpoint::patch_bornes),
+        )
+        .route(
+            "/creneaux/:evenement_id/dupliquer",
+            post(creneaux::endpoint::post_dupliquer),
+        )
+        .route(
+            "/creneaux/:evenement_id/mapping",
+            patch(creneaux::endpoint::patch_mapping),
+        )
+        .route(
+            "/creneaux/:evenement_id/:creneau_id",
+            patch(creneaux::endpoint::patch_creneau)
+                .delete(creneaux::endpoint::delete_creneau_endpoint),
+        )
+        .route(
+            "/responsables/:evenement_id",
+            get(responsables::endpoint::list_responsables)
+                .post(responsables::endpoint::post_responsable),
+        )
+        .route(
+            "/responsables/:evenement_id/soumissions",
+            get(responsables::endpoint::search_soumissions),
+        )
+        .route(
+            "/responsables/:evenement_id/:commission_id/:soumission_id",
+            delete(responsables::endpoint::delete_responsable),
         )
         .route(
             "/evenements",

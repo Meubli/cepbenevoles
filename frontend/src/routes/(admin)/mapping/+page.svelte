@@ -103,7 +103,7 @@
 				poste_id: isPolyvalent ? null : selectedPosteId || null
 			});
 			editing = null;
-			await load();
+			await refresh();
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
 		}
@@ -120,131 +120,135 @@
 	importée normalement ; seul ce souhait reste de côté jusqu'au mapping.
 </p>
 
-{#if error}
-	<p role="alert" class="error-note">{error}</p>
-{/if}
+<div class="panel wf">
+	{#if error}
+		<p role="alert" class="error-note">{error}</p>
+	{/if}
 
-{#if loading}
-	<p>Chargement…</p>
-{:else}
-	<div class="toolbar-row" style="margin-top:0; justify-content:flex-start">
-		<input
-			class="input-wf wf"
-			style="flex:1; min-width:160px"
-			type="search"
-			placeholder="🔍 Rechercher un libellé…"
-			bind:value={search}
-		/>
-		<div class="btn-group">
-			<button class="btn-wf" class:primary={filter === 'all'} onclick={() => (filter = 'all')}>
-				Tous
-			</button>
-			<button
-				class="btn-wf"
-				class:primary={filter === 'unmapped'}
-				onclick={() => (filter = 'unmapped')}
-			>
-				Non mappés ({unmappedCount()})
-			</button>
-		</div>
-	</div>
-
-	{#each visibleRows() as row (row.libelle)}
-		<div data-testid="mapping-row">
-			<div class="comm-row" class:unmapped={!row.kind}>
-				<span>"{row.libelle}"</span>
-				<div class="comm-meta">
-					{#if row.kind === 'polyvalent'}
-						<span class="pill">spécial</span>
-						<span class="wf-label">bénévole polyvalent — pas de mapping commission</span>
-					{:else if row.kind}
-						<span class="pill">mappé</span>
-						<span class="wf-label">
-							→ {row.commission_nom}{row.poste_nom ? ` · ${row.poste_nom}` : ''}
-						</span>
-					{:else}
-						<span class="pill unmapped">non mappé</span>
-					{/if}
-					{#if row.kind !== 'polyvalent'}
-						<button
-							class="btn-wf"
-							class:primary={!row.kind}
-							onclick={() => startAssociating(row.libelle)}
-						>
-							{row.kind ? 'Modifier' : 'Associer'}
-						</button>
-					{/if}
-				</div>
+	{#if loading}
+		<p>Chargement…</p>
+	{:else}
+		<div class="toolbar-row" style="margin-top:0; justify-content:flex-start">
+			<input
+				class="input-wf wf"
+				style="flex:1; min-width:160px"
+				type="search"
+				placeholder="🔍 Rechercher un libellé…"
+				bind:value={search}
+			/>
+			<div class="btn-group">
+				<button class="btn-wf" class:primary={filter === 'all'} onclick={() => (filter = 'all')}>
+					Tous
+				</button>
+				<button
+					class="btn-wf"
+					class:primary={filter === 'unmapped'}
+					onclick={() => (filter = 'unmapped')}
+				>
+					Non mappés ({unmappedCount()})
+				</button>
 			</div>
+		</div>
 
-			{#if editing === row.libelle}
-				<div style="margin-top:12px; padding-top:16px; border-top:1px solid var(--line)">
-					<h3>Associer — "{row.libelle}"</h3>
-					<div class="field-grid">
-						<div class="field wf">
-							<span class="wf-label">Commission</span>
-							<div class="btn-group">
-								<button
-									class="btn-wf"
-									class:primary={selectedCommissionId === POLYVALENT_VALUE}
-									onclick={() => selectCommission(POLYVALENT_VALUE)}
-								>
-									Bénévole polyvalent
-								</button>
-								{#each commissions as c (c.id)}
-									<button
-										class="btn-wf"
-										class:primary={selectedCommissionId === c.id}
-										style="border-left:4px solid {c.couleur}"
-										onclick={() => selectCommission(c.id)}
-									>
-										{c.nom}
-									</button>
-								{/each}
-							</div>
-						</div>
-						{#if selectedCommission()?.a_des_postes}
+		{#each visibleRows() as row (row.libelle)}
+			<div data-testid="mapping-row">
+				<div class="comm-row" class:unmapped={!row.kind}>
+					<span>"{row.libelle}"</span>
+					<div class="comm-meta">
+						{#if row.kind === 'polyvalent'}
+							<span class="pill">spécial</span>
+							<span class="wf-label">bénévole polyvalent — pas de mapping commission</span>
+						{:else if row.kind}
+							<span class="pill">mappé</span>
+							<span class="wf-label">
+								→ {row.commission_nom}{row.poste_nom ? ` · ${row.poste_nom}` : ''}
+							</span>
+						{:else}
+							<span class="pill unmapped">non mappé</span>
+						{/if}
+						{#if row.kind !== 'polyvalent'}
+							<button
+								class="btn-wf"
+								class:primary={!row.kind}
+								onclick={() => startAssociating(row.libelle)}
+							>
+								{row.kind ? 'Modifier' : 'Associer'}
+							</button>
+						{/if}
+					</div>
+				</div>
+
+				{#if editing === row.libelle}
+					<div style="margin-top:12px; padding-top:16px; border-top:1px solid var(--line)">
+						<h3>Associer — "{row.libelle}"</h3>
+						<div class="field-grid">
 							<div class="field wf">
-								<span class="wf-label">
-									Poste <span class="optional-tag">— uniquement si la commission choisie en a</span>
-								</span>
+								<span class="wf-label">Commission</span>
 								<div class="btn-group">
 									<button
 										class="btn-wf"
-										class:primary={selectedPosteId === ''}
-										onclick={() => (selectedPosteId = '')}
+										class:primary={selectedCommissionId === POLYVALENT_VALUE}
+										onclick={() => selectCommission(POLYVALENT_VALUE)}
 									>
-										Aucun poste précis
+										Bénévole polyvalent
 									</button>
-									{#each selectedCommission()?.postes ?? [] as p (p.id)}
+									{#each commissions as c (c.id)}
 										<button
 											class="btn-wf"
-											class:primary={selectedPosteId === p.id}
-											onclick={() => (selectedPosteId = p.id)}
+											class:primary={selectedCommissionId === c.id}
+											style="border-left:4px solid {c.couleur}"
+											onclick={() => selectCommission(c.id)}
 										>
-											{p.nom}
+											{c.nom}
 										</button>
 									{/each}
 								</div>
 							</div>
-						{/if}
+							{#if selectedCommission()?.a_des_postes}
+								<div class="field wf">
+									<span class="wf-label">
+										Poste <span class="optional-tag">
+											— uniquement si la commission choisie en a
+										</span>
+									</span>
+									<div class="btn-group">
+										<button
+											class="btn-wf"
+											class:primary={selectedPosteId === ''}
+											onclick={() => (selectedPosteId = '')}
+										>
+											Aucun poste précis
+										</button>
+										{#each selectedCommission()?.postes ?? [] as p (p.id)}
+											<button
+												class="btn-wf"
+												class:primary={selectedPosteId === p.id}
+												onclick={() => (selectedPosteId = p.id)}
+											>
+												{p.nom}
+											</button>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						</div>
+						<button
+							class="btn-wf primary"
+							style="margin-top:14px"
+							onclick={() => saveMapping(row.libelle)}
+						>
+							Enregistrer le mapping
+						</button>
+						<button class="btn-wf" style="margin-top:14px" onclick={() => (editing = null)}>
+							Annuler
+						</button>
+						<p class="note" style="margin-top:8px">
+							S'applique aux prochaines synchronisations ; les soumissions déjà importées avec ce
+							libellé seront mises à jour rétroactivement.
+						</p>
 					</div>
-					<button
-						class="btn-wf primary"
-						style="margin-top:14px"
-						onclick={() => saveMapping(row.libelle)}
-					>
-						Enregistrer le mapping
-					</button>
-					<button class="btn-wf" style="margin-top:14px" onclick={() => (editing = null)}>
-						Annuler
-					</button>
-					<p class="note" style="margin-top:8px">
-						S'applique aux prochaines synchronisations ; les soumissions déjà importées avec ce
-						libellé seront mises à jour rétroactivement.
-					</p>
-				</div>
-			{/if}
-		</div>
-	{/each}
-{/if}
+				{/if}
+			</div>
+		{/each}
+	{/if}
+</div>

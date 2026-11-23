@@ -107,6 +107,7 @@
 					<input
 						class="input-wf wf"
 						type="email"
+						name="email"
 						placeholder="prenom.nom@exemple.fr"
 						bind:value={email}
 						required

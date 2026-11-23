@@ -1,6 +1,8 @@
 # Handoff — reprise de session
 
-Dernière mise à jour : 2026-11-23. Dernier commit : `bbcb4b9`.
+Dernière mise à jour : 2026-11-23. Dernier commit : `bbcb4b9` — travail
+décrit ci-dessous (écrans Créneaux + Besoins + Responsables) pas encore
+commité.
 
 ## État général
 
@@ -487,11 +489,118 @@ déjà couvert fonctionnellement par les tests existants).
     l'API, cf. "Fait" ci-dessus).
 
 Toutes les pages existantes (connexion, événements, mapping, admins,
-synchro, commissions) sont restylées sur la maquette ou construites
-dessus. Reste, côté maquette : les écrans qui n'existent pas encore dans
-l'appli du tout (Besoins, Créneaux, Bénévoles, Générer planning,
-Responsables) — pas un restyle, une construction d'écran complète, hors
-scope ici.
+synchro, commissions, créneaux, besoins, responsables) sont restylées sur
+la maquette ou construites dessus. Reste, côté maquette : les écrans qui
+n'existent pas encore dans l'appli du tout (Bénévoles, Générer planning) —
+pas un restyle, une construction d'écran complète, hors scope ici.
+
+- **Écran Créneaux** (`/creneaux`, specs.md §4.1/§4.2/§4.3) : périmètre
+  choisi avec l'utilisateur, les quatre volets proposés — gabarit de
+  créneaux applicatifs par jour/événement (grille générale), grilles
+  propres par commission (+ duplication d'une grille existante comme
+  point de départ), bornes matin/midi/aprem/soir paramétrables par
+  événement, mapping créneau form → créneaux applicatifs — tous
+  construits.
+  - **Backend** : nouveau module `backend/src/creneaux/` (domaine +
+    `endpoint.rs`), migration `20260101000007_creneaux.sql` (tables
+    `creneau_applicatif`, `creneau_form_mapping`, colonnes
+    `born_fin_matin/midi/aprem` sur `evenement`). Routes sous
+    `/api/creneaux/*` (même préfixe partout → un seul tag live-refresh
+    `"creneaux"`). Pas de macro `sqlx::query!`/`query_as!` utilisée ici
+    (requêtes runtime) : aucun impact sur `backend/.sqlx/`.
+  - **Frontend** (`frontend/src/routes/(admin)/creneaux/+page.svelte`) :
+    sélecteur d'événement, les quatre sections en une seule page. Nav
+    (`AdminNav.svelte`) : lien activé, retiré de la liste des écrans
+    désactivés.
+  - **Vérifié** : build + clippy + `cargo test --lib` propres ; smoke
+    test manuel complet de chaque endpoint (create/patch/delete créneau,
+    bornes, duplication — y compris les deux rejets attendus
+    "commission cible non vide"/"commission non propre", mapping — y
+    compris rejet slot invalide et créneau hors grille générale, avec
+    vérification que l'échec ne vide pas le mapping existant grâce au
+    rollback de transaction) via curl authentifié, puis aperçu visuel
+    dans le navigateur pour les quatre sections.
+  - **Pas construit ici** (pas demandé, hors du périmètre discuté) :
+    aucun test d'intégration Rust dédié (`backend/tests/creneaux_*.rs`)
+    ni spec e2e Playwright pour cet écran — à ajouter si un futur lot y
+    revient, sur le modèle de `commissions_endpoint.rs`/
+    `commissions.spec.ts`. Les règles d'enchaînement elles-mêmes (§4.2
+    points 1-3, pause/non-enchaînement midi-soir) ne sont pas
+    implémentées : cet écran ne fait qu'en paramétrer les bornes, les
+    règles proprement dites arriveront avec la génération du planning
+    (§6).
+
+- **Écran Besoins** (`/besoins`, specs.md §5/§5.1, wireframe s3) :
+  saisie du nombre de bénévoles requis par commission × créneau
+  applicatif, avec répartition par poste pour les commissions qui en ont.
+  - **Backend** : nouveau module `backend/src/besoins/` (domaine +
+    `endpoint.rs`), migration `20260101000008_besoins.sql` (tables
+    `besoin_commission`, `besoin_poste`). Upsert (`ON CONFLICT ... DO
+    UPDATE`) par créneau × commission (ou × poste), pas de suppression de
+    ligne — un besoin à 0 est une valeur normale (§5.3). Validations :
+    commission `besoin_chiffre = false` rejetée, créneau hors grille de la
+    commission (générale vs propre, même règle que Créneaux §4.3)
+    rejeté, somme des besoins par poste sur un créneau ne doit jamais
+    dépasser le besoin de la commission sur ce créneau. Routes sous
+    `/api/besoins/*`. Pas de macro `sqlx::query!`/`query_as!` (requêtes
+    runtime) : aucun impact sur `backend/.sqlx/`.
+  - **Frontend** (`frontend/src/routes/(admin)/besoins/+page.svelte`) :
+    sélecteur événement/jour (même `btn-group` que Créneaux), un
+    `req-table` (nouvelles classes dans `admin.css`, portées de la
+    maquette) pour la grille générale — commissions en lignes, créneaux du
+    jour en colonnes — puis un sous-tableau par poste pour chaque
+    commission qui en a (avec ligne de total calculé en direct côté
+    client, avant même l'enregistrement). Panneau séparé pour les
+    commissions à grille propre (sélecteur par commission, même
+    disposition). Un bouton "Enregistrer les besoins" par tableau envoie
+    en parallèle une requête par cellule renseignée. Nav (`AdminNav.svelte`) :
+    lien activé, retiré de la liste des écrans désactivés.
+  - **Vérifié** : build + clippy propres côté backend, lint + svelte-check
+    propres côté frontend ; smoke test manuel (créneaux de test insérés
+    puis retirés en base) de la saisie commission, de l'enregistrement, et
+    du rejet attendu "la somme des besoins par poste... dépasserait le
+    besoin de la commission" avec message affiché dans l'UI.
+  - **Pas construit ici** (pas demandé) : aucun test d'intégration Rust
+    dédié ni spec e2e Playwright pour cet écran.
+
+- **Écran Responsables** (`/responsables`, specs.md §5.4, wireframe s9) :
+  désigner/retirer un ou plusieurs bénévoles responsables d'une
+  commission, par événement. Pas d'écran pour les responsables de poste
+  (§5.5) — purement informatif, désigné uniquement depuis l'écran Planning
+  (pas encore construit), hors scope.
+  - **Backend** : nouveau module `backend/src/responsables/` (domaine +
+    `endpoint.rs`), migration `20260101000009_responsables.sql` (table
+    `responsable_commission`, sans `updated_by`/`updated_at` — la ligne
+    n'est jamais modifiée, seulement créée/supprimée). Règle de
+    chevauchement (§5.4) implémentée en comparant en mémoire les
+    intervalles jour/heure de la grille de la commission visée et de
+    chaque autre commission dont ce bénévole est déjà responsable sur cet
+    événement (générale ou propre, même logique de périmètre que
+    Créneaux/Besoins) — rejeté si au moins un chevauchement, sauf s'il
+    s'agit de la même commission. Un endpoint de recherche de bénévoles
+    (`GET /responsables/:id/soumissions?q=`, sur la table `soumission` —
+    pas d'entité `Benevole` séparée, pas d'écran "Bénévoles" dédié non
+    plus pour fournir ça autrement) alimente le champ "Ajouter un
+    responsable". Routes sous `/api/responsables/*`. Pas de macro
+    `sqlx::query!`/`query_as!` (requêtes runtime).
+  - **Frontend** (`frontend/src/routes/(admin)/responsables/+page.svelte`) :
+    panneau "Couverture par commission" (compteur par commission, pill
+    accentuée si besoin chiffré et 0 responsable), sélecteur de commission
+    en `btn-group` (bordure couleur comme Créneaux/Besoins), liste des
+    responsables de la commission sélectionnée (`comm-row`, badge
+    "R", note de cumul si responsable d'une autre commission), recherche +
+    ajout d'un bénévole. Nav (`AdminNav.svelte`) : lien activé, retiré de
+    la liste des écrans désactivés.
+  - **Vérifié** : build + clippy propres côté backend, lint + svelte-check
+    propres côté frontend ; smoke test manuel (soumission et créneaux de
+    test insérés puis retirés en base) de l'ajout, du retrait, et du rejet
+    de chevauchement attendu ("... est déjà responsable de \"Accueil\",
+    dont au moins un créneau chevauche cette commission") avec message
+    affiché dans l'UI.
+  - **Pas construit ici** (pas demandé) : aucun test d'intégration Rust
+    dédié ni spec e2e Playwright pour cet écran ; pas de calcul de blocage
+    de la génération (§6.1) à partir de ce panneau de couverture — purement
+    informatif pour l'instant, la génération elle-même n'existe pas.
 
 ## Prochaines étapes, dans l'ordre discuté avec l'utilisateur
 
@@ -513,7 +622,13 @@ scope ici.
 9. ~~Websocket de rafraîchissement live, tous écrans admin~~ — fait (voir
    plus bas). Scoping Planning (par événement/jour) différé jusqu'à la
    construction de cet écran.
-10. Rate limiting (DB, décider header IP) — seul point ouvert restant de
+10. ~~Écran "Créneaux" (gabarit applicatif, grilles propres, bornes,
+    mapping form)~~ — fait (voir plus bas).
+11. ~~Écran "Besoins" (commission × créneau, répartition par poste)~~ —
+    fait (voir plus bas).
+12. ~~Écran "Responsables" (responsables de commission par événement)~~ —
+    fait (voir plus bas).
+13. Rate limiting (DB, décider header IP) — seul point ouvert restant de
     cette liste.
 
 ## Commandes utiles

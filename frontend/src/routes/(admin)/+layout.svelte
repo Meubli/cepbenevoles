@@ -41,7 +41,7 @@
 			<span class="brand">CEP·BÉNÉVOLES</span>
 			{#if session}
 				<div class="session-box">
-					<span>{session.email}</span>
+					<span class="session-email">{session.email}</span>
 					{#if session.is_superadmin}
 						<span class="role-badge">superadmin</span>
 					{/if}
@@ -53,7 +53,7 @@
 	<main class="admin-main">
 		<div class="admin-layout">
 			<AdminNav />
-			<div class="panel wf">
+			<div class="panel">
 				{@render children()}
 			</div>
 		</div>
