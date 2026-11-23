@@ -6,11 +6,16 @@ import { clientId } from '#lib/live';
 export class ApiError extends Error {
 	status: number;
 	correlationId?: string;
+	// Names which input field the error applies to (e.g. "email"), when the
+	// backend's error payload says so — lets a form show the message right
+	// under that field instead of only in the screen's top-level banner.
+	field?: string;
 
-	constructor(status: number, correlationId?: string, message?: string) {
+	constructor(status: number, correlationId?: string, message?: string, field?: string) {
 		super(message ?? `Erreur ${status}`);
 		this.status = status;
 		this.correlationId = correlationId;
+		this.field = field;
 	}
 }
 
@@ -56,10 +61,14 @@ async function request<T>(path: string, init?: RequestOptions): Promise<T> {
 			body && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
 				? body.error
 				: undefined;
+		const bodyField =
+			body && typeof body === 'object' && 'field' in body && typeof body.field === 'string'
+				? body.field
+				: undefined;
 		const message =
 			bodyError ??
 			(response.status >= 500 ? 'Une erreur technique est survenue.' : `Erreur ${response.status}`);
-		throw new ApiError(response.status, correlationId, message);
+		throw new ApiError(response.status, correlationId, message, bodyField);
 	}
 
 	return body as T;

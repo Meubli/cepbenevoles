@@ -47,10 +47,20 @@ pub struct NewAdminBody {
 
 fn admin_error_response(err: AdminError) -> Response {
     match err {
-        AdminError::MissingField
-        | AdminError::NomTooLong
-        | AdminError::EmailTooLong
-        | AdminError::EmailTaken => (
+        // `field` names which input the message applies to, so the
+        // frontend can show it right under that field instead of only in
+        // the screen's top-level error banner.
+        AdminError::EmailTooLong | AdminError::InvalidEmail | AdminError::EmailTaken => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error": err.to_string(), "field": "email"})),
+        )
+            .into_response(),
+        AdminError::NomTooLong => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error": err.to_string(), "field": "nom"})),
+        )
+            .into_response(),
+        AdminError::MissingField => (
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(json!({"error": err.to_string()})),
         )

@@ -25,6 +25,7 @@
 
 	let creating = $state(false);
 	let createForm = $state<FormState>(emptyForm());
+	let createFieldErrors = $state<Record<string, string>>({});
 
 	// See (admin)/commissions/+page.svelte's refresh() for why this is split
 	// from load(): a live-refresh tick must not toggle `loading`.
@@ -79,6 +80,7 @@
 
 	async function createAdmin() {
 		error = null;
+		createFieldErrors = {};
 		if (!createForm.nom.trim() || !createForm.prenom.trim() || !createForm.email.trim()) {
 			error = 'Nom, prénom et email sont obligatoires.';
 			return;
@@ -89,7 +91,11 @@
 			createForm = emptyForm();
 			await refresh();
 		} catch (e) {
-			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
+			if (e instanceof ApiError && e.field) {
+				createFieldErrors = { [e.field]: e.message };
+			} else {
+				error = e instanceof ApiError ? e.message : 'Erreur inattendue';
+			}
 		}
 	}
 </script>
@@ -141,8 +147,17 @@
 					<div class="field wf">
 						<label>
 							Nom
-							<input class="input-wf" bind:value={createForm.nom} maxlength="100" required />
+							<input
+								class="input-wf"
+								bind:value={createForm.nom}
+								maxlength="100"
+								required
+								oninput={() => (createFieldErrors = {})}
+							/>
 						</label>
+						{#if createFieldErrors.nom}
+							<p class="error-note" style="margin:4px 0 0">{createFieldErrors.nom}</p>
+						{/if}
 					</div>
 					<div class="field wf">
 						<label>
@@ -159,8 +174,12 @@
 								bind:value={createForm.email}
 								maxlength="255"
 								required
+								oninput={() => (createFieldErrors = {})}
 							/>
 						</label>
+						{#if createFieldErrors.email}
+							<p class="error-note" style="margin:4px 0 0">{createFieldErrors.email}</p>
+						{/if}
 					</div>
 					<div class="field wf" style="flex-direction:row; align-items:center; gap:6px">
 						<label style="flex-direction:row; align-items:center; gap:6px; text-transform:none">

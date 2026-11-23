@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api, ApiError } from '#lib/api';
 	import { onLive } from '#lib/live';
+	import { createSaveFlash } from '#lib/saveFeedback.svelte';
 
 	type Evenement = {
 		id: string;
@@ -247,6 +248,8 @@
 		}
 	}
 
+	const bornesSaved = createSaveFlash();
+
 	async function saveBornes() {
 		if (!selectedEvenementId) return;
 		error = null;
@@ -257,6 +260,7 @@
 				fin_aprem: toApiTime(bornesForm.fin_aprem)
 			});
 			await refreshScreenData();
+			bornesSaved.trigger();
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
 		}
@@ -308,6 +312,8 @@
 		mappingDirty = true;
 	}
 
+	const mappingSaved = createSaveFlash();
+
 	async function saveMapping() {
 		if (!selectedEvenementId) return;
 		error = null;
@@ -322,6 +328,7 @@
 			await api.patch(`/creneaux/${selectedEvenementId}/mapping`, entries);
 			mappingDirty = false;
 			await refreshScreenData();
+			mappingSaved.trigger();
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
 		}
@@ -394,8 +401,47 @@
 								<span class="input-wf wf creneau-value">{toInputTime(c.heure_debut)}</span>
 								<span class="wf-label">Fin</span>
 								<span class="input-wf wf creneau-value">{toInputTime(c.heure_fin)}</span>
-								<button class="btn-wf" onclick={() => startEdit(c)}>✎</button>
-								<button class="btn-wf danger" onclick={() => removeCreneau(c)}>×</button>
+								<div class="field-actions">
+									<button
+										class="btn-wf icon-btn"
+										onclick={() => startEdit(c)}
+										aria-label="Modifier"
+										title="Modifier"
+									>
+										<svg
+											width="14"
+											height="14"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path
+												d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"
+											/>
+										</svg>
+									</button>
+									<button
+										class="btn-wf danger icon-btn"
+										onclick={() => removeCreneau(c)}
+										aria-label="Supprimer"
+										title="Supprimer"
+									>
+										<svg
+											width="14"
+											height="14"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+										>
+											<path d="M18 6 6 18" /><path d="M6 6l12 12" />
+										</svg>
+									</button>
+								</div>
 							</div>
 						{/if}
 					{/each}
@@ -454,8 +500,13 @@
 							</div>
 						</div>
 					{/each}
-					<button class="btn-wf primary" style="margin-top:8px" onclick={saveMapping}>
-						Enregistrer le mapping
+					<button
+						class="btn-wf primary"
+						class:success={mappingSaved.active}
+						style="margin-top:8px"
+						onclick={saveMapping}
+					>
+						{mappingSaved.active ? '✓ Enregistré' : 'Enregistrer le mapping'}
 					</button>
 				</div>
 			</div>
@@ -480,8 +531,13 @@
 						<input class="input-wf wf" type="time" bind:value={bornesForm.fin_aprem} />
 					</div>
 				</div>
-				<button class="btn-wf primary" style="margin-top:12px" onclick={saveBornes}>
-					Enregistrer
+				<button
+					class="btn-wf primary"
+					class:success={bornesSaved.active}
+					style="margin-top:12px"
+					onclick={saveBornes}
+				>
+					{bornesSaved.active ? '✓ Enregistré' : 'Enregistrer'}
 				</button>
 			</div>
 
@@ -582,8 +638,47 @@
 											<span class="input-wf wf creneau-value">{toInputTime(c.heure_debut)}</span>
 											<span class="wf-label">Fin</span>
 											<span class="input-wf wf creneau-value">{toInputTime(c.heure_fin)}</span>
-											<button class="btn-wf" onclick={() => startEdit(c)}>✎</button>
-											<button class="btn-wf danger" onclick={() => removeCreneau(c)}>×</button>
+											<div class="field-actions">
+												<button
+													class="btn-wf icon-btn"
+													onclick={() => startEdit(c)}
+													aria-label="Modifier"
+													title="Modifier"
+												>
+													<svg
+														width="14"
+														height="14"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<path
+															d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+														/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" />
+													</svg>
+												</button>
+												<button
+													class="btn-wf danger icon-btn"
+													onclick={() => removeCreneau(c)}
+													aria-label="Supprimer"
+													title="Supprimer"
+												>
+													<svg
+														width="14"
+														height="14"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+													>
+														<path d="M18 6 6 18" /><path d="M6 6l12 12" />
+													</svg>
+												</button>
+											</div>
 										</div>
 									{/if}
 								{/each}
@@ -628,6 +723,12 @@
 		align-items: center;
 		justify-content: center;
 		min-width: 60px;
+	}
+	.field-actions {
+		display: flex;
+		gap: 6px;
+		justify-content: flex-end;
+		margin-top: 2px;
 	}
 	.add-tile {
 		justify-content: center;

@@ -26,6 +26,8 @@ pub enum AdminError {
     NomTooLong,
     #[error("l'email ne peut pas dépasser {EMAIL_MAX_LEN} caractères")]
     EmailTooLong,
+    #[error("adresse email invalide")]
+    InvalidEmail,
     #[error("un admin avec cet email existe déjà")]
     EmailTaken,
     #[error("admin introuvable")]
@@ -40,6 +42,21 @@ pub enum AdminError {
 
 fn is_unique_violation(err: &sqlx::Error) -> bool {
     matches!(err, sqlx::Error::Database(db_err) if db_err.is_unique_violation())
+}
+
+/// Deliberately not RFC 5322 — just enough shape-checking to catch a typo
+/// (missing "@", no domain) before it becomes an admin who can never log
+/// in (the OTP email silently goes nowhere, specs.md §11.1).
+fn is_valid_email(email: &str) -> bool {
+    let Some((local, domain)) = email.split_once('@') else {
+        return false;
+    };
+    !local.is_empty()
+        && !email.contains(char::is_whitespace)
+        && domain.contains('.')
+        && !domain.starts_with('.')
+        && !domain.ends_with('.')
+        && domain.rsplit('.').next().is_some_and(|tld| tld.len() >= 2)
 }
 
 /// Creates a new admin (specs.md §11.4: "ajouter un admin ne demande pas de
@@ -59,6 +76,9 @@ pub async fn create_admin(pool: &sqlx::PgPool, input: NewAdmin) -> Result<Uuid, 
     }
     if input.email.trim().chars().count() > EMAIL_MAX_LEN {
         return Err(AdminError::EmailTooLong);
+    }
+    if !is_valid_email(input.email.trim()) {
+        return Err(AdminError::InvalidEmail);
     }
 
     let id: Uuid = sqlx::query_scalar(

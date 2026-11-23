@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api, ApiError } from '#lib/api';
 	import { onLive } from '#lib/live';
+	import { createSaveFlash } from '#lib/saveFeedback.svelte';
 
 	type Evenement = {
 		id: string;
@@ -190,7 +191,14 @@
 		return parseInt(formCommission[keyC(creneauId, commissionId)] ?? '0', 10) || 0;
 	}
 
-	async function saveCommissions(commissionsToSave: Commission[], jour: string | null) {
+	const generaleSaved = createSaveFlash();
+	const propreSaved = createSaveFlash();
+
+	async function saveCommissions(
+		commissionsToSave: Commission[],
+		jour: string | null,
+		flash: ReturnType<typeof createSaveFlash>
+	) {
 		if (!selectedEvenementId || !jour) return;
 		saving = true;
 		error = null;
@@ -226,6 +234,7 @@
 			}
 			await Promise.all(calls);
 			await refreshScreenData();
+			flash.trigger();
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
 		} finally {
@@ -329,11 +338,12 @@
 					</div>
 					<button
 						class="btn-wf primary"
+						class:success={generaleSaved.active}
 						style="margin-top:12px"
 						disabled={saving}
-						onclick={() => saveCommissions(commissionsGenerale(), selectedJour)}
+						onclick={() => saveCommissions(commissionsGenerale(), selectedJour, generaleSaved)}
 					>
-						Enregistrer les besoins
+						{generaleSaved.active ? '✓ Enregistré' : 'Enregistrer les besoins'}
 					</button>
 
 					{#each commissionsGenerale().filter((c) => c.a_des_postes) as comm (comm.id)}
@@ -455,11 +465,12 @@
 								</div>
 								<button
 									class="btn-wf primary"
+									class:success={propreSaved.active}
 									style="margin-top:12px"
 									disabled={saving}
-									onclick={() => saveCommissions([comm], selectedJour)}
+									onclick={() => saveCommissions([comm], selectedJour, propreSaved)}
 								>
-									Enregistrer les besoins
+									{propreSaved.active ? '✓ Enregistré' : 'Enregistrer les besoins'}
 								</button>
 
 								{#if comm.a_des_postes}
