@@ -495,16 +495,19 @@ n'existent pas encore dans l'appli du tout (Bénévoles, Générer planning) —
 pas un restyle, une construction d'écran complète, hors scope ici.
 
 - **Écran Créneaux** (`/creneaux`, specs.md §4.1/§4.2/§4.3) : périmètre
-  choisi avec l'utilisateur, les quatre volets proposés — gabarit de
-  créneaux applicatifs par jour/événement (grille générale), grilles
-  propres par commission (+ duplication d'une grille existante comme
-  point de départ), bornes matin/midi/aprem/soir paramétrables par
-  événement, mapping créneau form → créneaux applicatifs — tous
-  construits.
+  choisi avec l'utilisateur, les volets proposés — gabarit de créneaux
+  applicatifs par jour/événement (grille générale), grilles propres par
+  commission (+ duplication d'une grille existante comme point de
+  départ), mapping créneau form → créneaux applicatifs — tous construits.
+  Les bornes matin/midi/aprem/soir d'origine (§4.2 point 4) ont été
+  retirées par la suite (colonnes `born_fin_matin/midi/aprem` sur
+  `evenement`, migration `20260101000011_drop_bornes.sql`) : elles ne
+  servaient qu'aux règles "non-enchaînement midi/soir", devenues caduques
+  avec les créneaux repas (§4.4 ci-dessous), et n'étaient utilisées par
+  rien d'autre.
   - **Backend** : nouveau module `backend/src/creneaux/` (domaine +
     `endpoint.rs`), migration `20260101000007_creneaux.sql` (tables
-    `creneau_applicatif`, `creneau_form_mapping`, colonnes
-    `born_fin_matin/midi/aprem` sur `evenement`). Routes sous
+    `creneau_applicatif`, `creneau_form_mapping`). Routes sous
     `/api/creneaux/*` (même préfixe partout → un seul tag live-refresh
     `"creneaux"`). Pas de macro `sqlx::query!`/`query_as!` utilisée ici
     (requêtes runtime) : aucun impact sur `backend/.sqlx/`.
@@ -529,6 +532,41 @@ pas un restyle, une construction d'écran complète, hors scope ici.
     implémentées : cet écran ne fait qu'en paramétrer les bornes, les
     règles proprement dites arriveront avec la génération du planning
     (§6).
+  - **Créneaux repas (§4.4, ajouté après coup)** : remplace les règles
+    "non-enchaînement midi/soir" (4.2.2/4.2.3, devenues caduques) par des
+    groupes nommés de créneaux applicatifs de la grille générale, définis
+    par événement et par jour, décorrélés du mapping form. Migration
+    `20260101000010_creneaux_repas.sql` (tables `creneau_repas`,
+    `creneau_repas_membre`). Domaine : `create_creneau_repas`/
+    `update_creneau_repas`/`delete_creneau_repas` dans
+    `creneaux/mod.rs` — validations : nom non vide, min. 2 créneaux
+    (`CRENEAU_REPAS_MIN_MEMBRES`), jour dans les bornes de l'événement,
+    chaque créneau référencé appartient à la grille générale de cet
+    événement/jour. Routes `POST/PATCH/DELETE /api/creneaux/:evenement_id/
+    repas[/:id]`, incluses dans la réponse `GET /api/creneaux/:id`
+    (`creneaux_repas: [{id, jour, nom, creneau_ids}]`). Frontend : nouveau
+    panneau "Créneaux repas" dans l'écran Créneaux, même pattern
+    d'édition inline que les créneaux (ajout/édition avec nom + toggle
+    des créneaux du jour, suppression). **Contrainte de génération
+    elle-même (ne jamais affecter un bénévole à tous les créneaux d'un
+    même créneau repas) non implémentée** — ce lot ne couvre que le
+    paramétrage ; la contrainte arrivera avec l'algorithme de génération
+    (§6.2), comme les règles 4.2 ci-dessus.
+  - **Duplication jour → jour (§4.1, ajouté après coup)** : raccourci pour
+    copier les créneaux de grille générale d'un jour source vers un jour
+    cible vide, dans le même événement — les créneaux repas (ci-dessus)
+    **et le mapping form → créneaux applicatifs** du jour source sont
+    dupliqués avec, reconstruits contre les nouveaux créneaux copiés
+    (même nom/`slot_form`). Domaine : `dupliquer_jour` dans
+    `creneaux/mod.rs` (transaction unique, map ancien id → nouvel id pour
+    relier créneaux repas et mapping copiés) — refuse jour source = jour
+    cible, jour cible hors bornes événement, jour source sans créneau
+    générale, jour cible déjà non vide. Route `POST /api/creneaux/
+    :evenement_id/dupliquer-jour`. Ne touche pas les grilles propres (cf.
+    duplication par commission, déjà existante). Frontend : bouton
+    "Dupliquer les créneaux d'un autre jour" dans le panneau "créneaux du
+    jour",
+    affiché seulement quand ce jour n'a encore aucun créneau générale.
 
 - **Écran Besoins** (`/besoins`, specs.md §5/§5.1, wireframe s3) :
   saisie du nombre de bénévoles requis par commission × créneau
@@ -601,6 +639,132 @@ pas un restyle, une construction d'écran complète, hors scope ici.
     dédié ni spec e2e Playwright pour cet écran ; pas de calcul de blocage
     de la génération (§6.1) à partir de ce panneau de couverture — purement
     informatif pour l'instant, la génération elle-même n'existe pas.
+
+- **Écran Bénévoles** (`/benevoles`, specs.md §3.4, wireframe s7) : saisie
+  manuelle d'un bénévole arrivé hors Google Form — un formulaire reprenant
+  la structure du form (identité/contact, puis un bloc disponibilités +
+  souhaits par événement coché), remplissable en une seule saisie. Premier
+  écran de ce lot qui n'existait pas du tout dans l'appli (contrairement à
+  Créneaux/Besoins/Responsables, qui restylaient ou complétaient une page
+  déjà présente).
+  - **Backend** : nouveau module `backend/src/benevoles/` (domaine +
+    `endpoint.rs`), route unique `POST /api/benevoles`. Aucune nouvelle
+    migration : réutilise les tables déjà posées pour le sync
+    (`soumission`, `disponibilite_soumission`, `souhait_commission`) —
+    contrairement à une ligne importée du form, une saisie manuelle choisit
+    directement une commission/poste du référentiel (pas de libellé brut à
+    passer par `soumission_libelle`/le Mapping form, cf. §3.2). Une
+    soumission est créée par événement coché, dans **une seule
+    transaction** (tout ou rien). Validations : identité obligatoire
+    (email vérifié avec le même `is_valid_email`, rendu `pub(crate)` dans
+    `admins/mod.rs`, que l'écran Admins), `tranche_age` comparée aux
+    labels exacts de `sync::TrancheAge::label()`, au moins un événement et
+    pas de doublon d'événement dans la requête, chaque jour de
+    disponibilité dans les dates de l'événement visé, chaque poste souhaité
+    rattaché à la bonne commission. "Je suis joueur, peu m'importe" pose
+    directement `soumission.polyvalent = true` plutôt qu'un souhait. Pas
+    de macro `sqlx::query!`/`query_as!` (requêtes runtime) : aucun impact
+    sur `backend/.sqlx/`.
+  - **Frontend** (`frontend/src/routes/(admin)/benevoles/+page.svelte`) :
+    panneau identité/contact, panneau de sélection d'événements, puis un
+    panneau par événement coché avec le tableau de disponibilités
+    (jours/créneaux du form déduits des `(jour, slot_form)` déjà posés sur
+    l'écran Créneaux pour cet événement — `GET /creneaux/:id`, champ
+    `mapping` — jamais codé en dur par événement) et la liste de souhaits
+    (une case par commission active du référentiel, + une case par poste
+    quand elle en a, + la case polyvalent). Nouvelle classe
+    `.field-check` dans `admin.css` pour les lignes case à cocher + libellé
+    (le reste réutilise `field`/`field-grid`/`req-table`/`btn-group`
+    existants). Nav (`AdminNav.svelte`) : lien activé, retiré de la liste
+    des écrans désactivés.
+  - **Vérifié** : `cargo fmt`/`clippy --all-targets`/`cargo test --lib`
+    propres côté backend ; `svelte-check`/eslint/prettier/`npm run build`
+    propres côté frontend. Smoke test manuel via curl authentifié contre
+    `docker-compose.dev.yml` (login OTP réel via Mailpit) : création
+    réussie (soumission + dispos + souhaits vérifiés en base), puis les
+    rejets attendus — email invalide, poste n'appartenant pas à la
+    commission choisie, événement inconnu (404), aucun événement
+    sélectionné — tous avec le bon message. Créneau/mapping de test
+    insérés puis retirés en base pour vérifier que le tableau de
+    disponibilités affiche bien les cases issues du mapping réel. **Pas
+    vérifié visuellement dans un navigateur** (extension Claude in Chrome
+    indisponible dans cette session) — juste `svelte-check`/build/un
+    `curl` sur la page buildée.
+  - **Pas construit ici** (pas demandé) : aucun test d'intégration Rust
+    dédié ni spec e2e Playwright pour cet écran. Pas de filtrage des
+    commissions/postes proposés par tranche d'âge (§3.1 — le form réel
+    varie la liste selon l'âge) : la saisie manuelle montre tout le
+    référentiel actif, choix délibéré pour rester simple (cf. note du
+    wireframe s7 : "liste = référentiel des commissions actives").
+
+- **Planning — affectation manuelle, backend seul** (specs.md §6.3/§7.1) :
+  premier lot de l'écran Planning, décidé avec l'utilisateur en deux
+  temps — schéma + CRUD backend d'abord, écran `/planning` ensuite (pas
+  encore construit). Ce lot ne couvre que poser/retirer une affectation à
+  la main ; la génération automatique (§6.2) n'existe pas.
+  - **Backend** : nouveau module `backend/src/planning/` (domaine +
+    `endpoint.rs`), migration `20260101000012_affectations.sql` (table
+    `affectation` : `soumission_id`, `creneau_applicatif_id`,
+    `commission_id`, `poste_id` optionnel, `verrouille` — toujours `true`
+    ici, posé en prévision de la génération future, cf. §6.3 : une
+    affectation générée ne doit jamais être écrasée par une affectation
+    manuelle ultérieure déjà verrouillée). Contraintes DB : `UNIQUE
+    (soumission_id, creneau_applicatif_id)` (un bénévole, une seule
+    commission/poste par créneau), FK composite `(poste_id,
+    commission_id) → poste(id, commission_id)` (même garde-fou que
+    `mapping_souhait_form`, §3.2). Validations applicatives (`mod.rs`) :
+    soumission/créneau appartiennent à l'événement de l'URL, le créneau
+    appartient bien à la grille de la commission choisie (générale si
+    `commission_id IS NULL` sur le créneau, propre sinon — même logique
+    que `creneaux::check_commission_propre`), poste appartient à la
+    commission, pas de double affectation sur le même créneau. Routes
+    `GET/POST /api/planning/:evenement_id/affectations` (`GET` filtré par
+    `?jour=`), `DELETE /api/planning/:evenement_id/affectations/:id`.
+  - **Vérifié** : build + clippy + `cargo test --lib` propres ; smoke test
+    manuel complet via curl authentifié (create, list par jour, rejet
+    doublon sur même créneau, rejet créneau hors grille de la commission,
+    rejet poste hors commission, 404 soumission inconnue, delete).
+  - **Pas de `PATCH`** : changer une affectation se fait par delete +
+    create, suffisant pour l'écran construit ci-dessous. Aucun test
+    d'intégration Rust dédié ni spec e2e pour ce module.
+  - **Écran `/planning` (lot suivant, même conversation)** : vue
+    événement/jour, disposition "Bénévoles en lignes" uniquement
+    (choisi avec l'utilisateur — "Créneaux en lignes" et les filtres
+    commission/poste/recherche de §7.1 restent à construire). Colonnes =
+    créneaux de la **grille générale** du jour uniquement (`commission_id
+    IS NULL`) : une commission à grille propre (Plateau) n'est pas
+    assignable depuis cet écran pour l'instant — limitation délibérée,
+    confirmée avec l'utilisateur, à lever dans un lot futur (union des
+    grilles ou vue dédiée). Lignes = tous les bénévoles ayant déclaré une
+    disponibilité ce jour (nouvel endpoint `GET
+    /api/planning/:evenement_id/benevoles?jour=`, dans
+    `planning::endpoint`, domaine directement en SQL runtime dans
+    l'endpoint — pas de mutation, donc pas besoin de `mod.rs` — déduit la
+    disponibilité via `disponibilite_soumission` + `creneau_form_mapping`,
+    comme le fait le mapping form→créneaux, cf. écran Créneaux), même
+    quand ils n'ont encore aucune affectation ce jour. Clic sur une
+    cellule disponible et vide → mini-panneau inline (commission puis
+    poste si la commission en a, souhaits de ce bénévole affichés en
+    rappel) → `POST .../affectations` ; clic sur ✕ d'une cellule déjà
+    affectée → `DELETE`. Frontend :
+    `frontend/src/routes/(admin)/planning/+page.svelte`, nouveau lien
+    "Planning" dans `AdminNav.svelte` (premier élément — écran principal,
+    absent de la liste `s3-s10` d'origine, comme "Bénévoles" l'a été).
+  - **Vérifié** : build + clippy + `cargo test --lib`/svelte-check/eslint/
+    prettier propres ; endpoint `benevoles` et flux complet vérifiés via
+    curl authentifié (OTP réel via Mailpit) contre le stub Sheets.
+    Vérification visuelle dans le navigateur non refaite dans cette
+    session (pas d'extension Claude in Chrome connectée) — le code suit
+    strictement le pattern déjà validé visuellement des autres écrans
+    (Besoins/Créneaux), donc risque jugé faible, mais à confirmer à
+    l'œil à la prochaine occasion.
+  - **Pas construit ici** (hors périmètre discuté pour ce lot) :
+    disposition "Créneaux en lignes", filtres commission/poste/recherche
+    bénévole, totaux par créneau, badges responsable/responsable de
+    poste, version imprimable, détail individuel (écran s2), affectation
+    sur grille propre, et bien sûr la génération automatique (§6.2) —
+    tout §7.1 au-delà de la vue minimale "Bénévoles en lignes, grille
+    générale, affectation manuelle".
 
 ## Prochaines étapes, dans l'ordre discuté avec l'utilisateur
 

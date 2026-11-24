@@ -1,5 +1,6 @@
 pub mod admins;
 pub mod auth;
+pub mod benevoles;
 pub mod besoins;
 pub mod commissions;
 pub mod config;
@@ -10,6 +11,7 @@ pub mod google_auth;
 pub mod health;
 pub mod live;
 pub mod mapping;
+pub mod planning;
 pub mod responsables;
 pub mod sheets;
 pub mod sync;
@@ -79,6 +81,7 @@ fn api_router() -> Router<AppState> {
             "/mapping",
             get(mapping::endpoint::list_mapping).post(mapping::endpoint::post_mapping),
         )
+        .route("/benevoles", post(benevoles::endpoint::post_benevole))
         .route(
             "/besoins/:evenement_id",
             get(besoins::endpoint::get_besoins),
@@ -113,21 +116,42 @@ fn api_router() -> Router<AppState> {
             get(creneaux::endpoint::get_creneaux).post(creneaux::endpoint::post_creneau),
         )
         .route(
-            "/creneaux/:evenement_id/bornes",
-            patch(creneaux::endpoint::patch_bornes),
-        )
-        .route(
             "/creneaux/:evenement_id/dupliquer",
             post(creneaux::endpoint::post_dupliquer),
+        )
+        .route(
+            "/creneaux/:evenement_id/dupliquer-jour",
+            post(creneaux::endpoint::post_dupliquer_jour),
         )
         .route(
             "/creneaux/:evenement_id/mapping",
             patch(creneaux::endpoint::patch_mapping),
         )
         .route(
+            "/creneaux/:evenement_id/repas",
+            post(creneaux::endpoint::post_creneau_repas),
+        )
+        .route(
+            "/creneaux/:evenement_id/repas/:creneau_repas_id",
+            patch(creneaux::endpoint::patch_creneau_repas)
+                .delete(creneaux::endpoint::delete_creneau_repas_endpoint),
+        )
+        .route(
             "/creneaux/:evenement_id/:creneau_id",
             patch(creneaux::endpoint::patch_creneau)
                 .delete(creneaux::endpoint::delete_creneau_endpoint),
+        )
+        .route(
+            "/planning/:evenement_id/affectations",
+            get(planning::endpoint::list_affectations).post(planning::endpoint::post_affectation),
+        )
+        .route(
+            "/planning/:evenement_id/benevoles",
+            get(planning::endpoint::list_benevoles_jour),
+        )
+        .route(
+            "/planning/:evenement_id/affectations/:affectation_id",
+            delete(planning::endpoint::delete_affectation_endpoint),
         )
         .route(
             "/responsables/:evenement_id",

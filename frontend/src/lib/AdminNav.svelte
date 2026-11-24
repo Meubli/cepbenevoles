@@ -8,20 +8,24 @@
 	// render disabled rather than as dead links or being silently dropped
 	// from the nav — a preview of the final shape, not a lie about what
 	// works today.
-	const betweenEvenementsAndMapping = ['Bénévoles'];
 	const betweenMappingAndAdmins = ['Générer planning'];
 
+	const planningHref = resolve('/(admin)/planning');
 	const besoinsHref = resolve('/(admin)/besoins');
 	const responsablesHref = resolve('/(admin)/responsables');
 	const creneauxHref = resolve('/(admin)/creneaux');
 	const commissionsHref = resolve('/(admin)/commissions');
 	const evenementsHref = resolve('/(admin)/evenements');
+	const benevolesHref = resolve('/(admin)/benevoles');
 	const mappingHref = resolve('/(admin)/mapping');
 	const adminsHref = resolve('/(admin)/admins');
 	const synchroHref = resolve('/(admin)/synchro');
 </script>
 
 <nav class="admin-nav wf" aria-label="Navigation admin">
+	<a class="admin-nav-item" class:sel={page.url.pathname === planningHref} href={planningHref}>
+		Planning
+	</a>
 	<a class="admin-nav-item" class:sel={page.url.pathname === besoinsHref} href={besoinsHref}>
 		Besoins
 	</a>
@@ -38,9 +42,9 @@
 	<a class="admin-nav-item" class:sel={page.url.pathname === evenementsHref} href={evenementsHref}>
 		Événements
 	</a>
-	{#each betweenEvenementsAndMapping as label (label)}
-		<span class="admin-nav-item disabled" aria-disabled="true">{label}</span>
-	{/each}
+	<a class="admin-nav-item" class:sel={page.url.pathname === benevolesHref} href={benevolesHref}>
+		Bénévoles
+	</a>
 	<a class="admin-nav-item" class:sel={page.url.pathname === synchroHref} href={synchroHref}>
 		Synchro form
 	</a>

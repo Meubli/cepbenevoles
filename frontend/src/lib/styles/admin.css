@@ -442,6 +442,37 @@ select.input-wf {
 	text-align: left;
 	min-width: 160px;
 }
+.field.check-field {
+	cursor: pointer;
+	font-size: 12.5px;
+}
+.check-wf {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 16px;
+	height: 16px;
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	background: var(--surface);
+	cursor: pointer;
+	flex-shrink: 0;
+	position: relative;
+}
+.check-wf:checked {
+	background: var(--accent);
+	border-color: var(--accent);
+}
+.check-wf:checked::after {
+	content: '';
+	position: absolute;
+	left: 4px;
+	top: 1px;
+	width: 5px;
+	height: 9px;
+	border: solid var(--bg);
+	border-width: 0 2px 2px 0;
+	transform: rotate(45deg);
+}
 .req-input {
 	width: 48px;
 	height: 26px;

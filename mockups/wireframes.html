@@ -606,21 +606,56 @@ table.plan th:first-child{background:var(--accent-weak); z-index:2}
       </div>
 
       <div class="panel wf">
-        <h3>Bornes matin / midi / soir</h3>
-        <div class="field-grid">
-          <div class="field wf"><span class="wf-label">Midi — créneau 1</span><span class="input-wf wf"></span></div>
-          <div class="field wf"><span class="wf-label">Midi — créneau 2</span><span class="input-wf wf"></span></div>
-          <div class="field wf"><span class="wf-label">Soir — créneau 1</span><span class="input-wf wf"></span></div>
-          <div class="field wf"><span class="wf-label">Soir — créneau 2</span><span class="input-wf wf"></span></div>
+        <h3>Lundi 3 mai — cr&eacute;neaux du jour <span class="wf-label">(jour vide)</span></h3>
+        <p class="note" style="margin:4px 0 10px">Jour sans créneau de grille générale : raccourci pour dupliquer un jour déjà rempli, plutôt que ressaisir. Refusé si ce jour a déjà des créneaux ; les créneaux repas (ci-dessous) du jour source sont dupliqués avec.</p>
+        <div class="toolbar-row" style="justify-content:space-between; margin:0 0 10px">
+          <div class="wf-label">Dupliquer les créneaux d'un autre jour</div>
+          <div class="btn-group">
+            <button class="btn-wf primary">Ven 30/04</button>
+            <button class="btn-wf">Sam 01/05</button>
+            <button class="btn-wf">Dim 02/05</button>
+          </div>
+          <button class="btn-wf primary">Dupliquer</button>
         </div>
       </div>
 
       <div class="panel wf">
         <h3>Règles d'enchaînement <span class="wf-label">(grille générale)</span></h3>
         <div class="rule-row"><div><div class="rule-label">Pause après N créneaux consécutifs</div><div class="rule-sub">Défaut : 2</div></div><span class="input-wf wf" style="width:50px"></span></div>
-        <div class="rule-row"><div class="rule-label">Interdire l'enchaînement des 2 créneaux midi</div><div class="toggle-wf wf-fill"></div></div>
-        <div class="rule-row"><div class="rule-label">Interdire l'enchaînement des 2 créneaux soir</div><div class="toggle-wf wf-fill"></div></div>
-        <p class="note" style="margin-top:10px">Ces règles ne s'appliquent qu'aux commissions utilisant la grille générale.</p>
+        <p class="note" style="margin-top:10px">Cette règle ne s'applique qu'aux commissions utilisant la grille générale. Les anciennes règles "non-enchaînement midi/soir" sont remplacées par les créneaux repas ci-dessous.</p>
+      </div>
+
+      <div class="panel wf">
+        <h3>Créneaux repas <span class="wf-label">(grille générale)</span></h3>
+        <p class="note" style="margin:4px 0 10px">Liste nommée de créneaux, min. 2, définie librement par l'admin, <strong>par jour</strong> (variable d'un jour et d'un événement à l'autre, décorrélée du mapping form ci-dessus) : la génération automatique n'affecte jamais un bénévole à la totalité des créneaux d'un même créneau repas, pour lui garantir une pause (une affectation manuelle peut, elle, le faire — déconseillé). Non applicable aux commissions à grille propre.</p>
+
+        <div class="field-grid" style="margin-bottom:6px">
+          <div class="field wf"><span class="wf-label">Nom</span><span class="input-wf wf">Déjeuner</span></div>
+        </div>
+        <div class="btn-group" style="margin-bottom:12px">
+          <button class="btn-wf">7–9h</button>
+          <button class="btn-wf">9–11h</button>
+          <button class="btn-wf primary">11–13h</button>
+          <button class="btn-wf primary">13–15h</button>
+          <button class="btn-wf">15–17h</button>
+          <button class="btn-wf">17–19h30</button>
+          <button class="btn-wf">19h30+</button>
+          <button class="btn-wf danger icon-btn" title="Supprimer ce créneau repas">✕</button>
+        </div>
+        <div class="field-grid" style="margin-bottom:6px">
+          <div class="field wf"><span class="wf-label">Nom</span><span class="input-wf wf">Dîner</span></div>
+        </div>
+        <div class="btn-group" style="margin-bottom:12px">
+          <button class="btn-wf">7–9h</button>
+          <button class="btn-wf">9–11h</button>
+          <button class="btn-wf">11–13h</button>
+          <button class="btn-wf">13–15h</button>
+          <button class="btn-wf">15–17h</button>
+          <button class="btn-wf primary">17–19h30</button>
+          <button class="btn-wf primary">19h30+</button>
+          <button class="btn-wf danger icon-btn" title="Supprimer ce créneau repas">✕</button>
+        </div>
+        <button class="btn-wf">+ ajouter un créneau repas — vendredi 30 avril</button>
       </div>
 
       <div class="panel wf">

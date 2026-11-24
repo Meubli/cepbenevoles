@@ -47,7 +47,7 @@ fn is_unique_violation(err: &sqlx::Error) -> bool {
 /// Deliberately not RFC 5322 — just enough shape-checking to catch a typo
 /// (missing "@", no domain) before it becomes an admin who can never log
 /// in (the OTP email silently goes nowhere, specs.md §11.1).
-fn is_valid_email(email: &str) -> bool {
+pub(crate) fn is_valid_email(email: &str) -> bool {
     let Some((local, domain)) = email.split_once('@') else {
         return false;
     };

@@ -27,8 +27,14 @@
 		ordre: number;
 	};
 	type MappingEntry = { jour: string; slot_form: string; creneau_applicatif_id: string };
-	type Bornes = { born_fin_matin: string; born_fin_midi: string; born_fin_aprem: string };
-	type ScreenData = { bornes: Bornes; creneaux: Creneau[]; mapping: MappingEntry[] };
+	type CreneauRepas = { id: string; jour: string; nom: string; creneau_ids: string[] };
+	type ScreenData = {
+		creneaux: Creneau[];
+		mapping: MappingEntry[];
+		creneaux_repas: CreneauRepas[];
+	};
+
+	const CRENEAU_REPAS_MIN_MEMBRES = 2;
 
 	const SLOTS = ['matin', 'midi', 'aprem', 'soir'] as const;
 
@@ -81,8 +87,6 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
-	let bornesForm = $state({ fin_matin: '', fin_midi: '', fin_aprem: '' });
-
 	// Formulaire d'ajout de créneau, un seul à la fois (clé = "generale" ou
 	// l'id de la commission à grille propre affichée).
 	let addKey = $state<string | null>(null);
@@ -93,6 +97,9 @@
 
 	let dupliquerOuvert = $state(false);
 	let dupliquerSourceId = $state('');
+
+	let dupliquerJourOuvert = $state(false);
+	let dupliquerJourSourceId = $state('');
 
 	// État local du mapping form -> créneaux, reconstruit à chaque chargement
 	// puis modifié localement avant un "Enregistrer" qui remplace tout
@@ -119,11 +126,6 @@
 		try {
 			const d = await api.get<ScreenData>(`/creneaux/${selectedEvenementId}`);
 			data = d;
-			bornesForm = {
-				fin_matin: toInputTime(d.bornes.born_fin_matin),
-				fin_midi: toInputTime(d.bornes.born_fin_midi),
-				fin_aprem: toInputTime(d.bornes.born_fin_aprem)
-			};
 			if (!mappingDirty) rebuildMappingState(d);
 			const ev = evenements.find((e) => e.id === selectedEvenementId);
 			if (ev) {
@@ -180,6 +182,7 @@
 		addKey = null;
 		editingId = null;
 		dupliquerOuvert = false;
+		dupliquerJourOuvert = false;
 		data = null;
 		void refreshScreenData();
 	}
@@ -248,19 +251,83 @@
 		}
 	}
 
-	const bornesSaved = createSaveFlash();
+	let repasAddOpen = $state(false);
+	let repasAddForm = $state<{ nom: string; ids: string[] }>({ nom: '', ids: [] });
+	let editingRepasId = $state<string | null>(null);
+	let repasEditForm = $state<{ nom: string; ids: string[] }>({ nom: '', ids: [] });
 
-	async function saveBornes() {
+	function creneauxRepasDe(jour: string): CreneauRepas[] {
+		return (data?.creneaux_repas ?? []).filter((r) => r.jour === jour);
+	}
+
+	function startAddRepas() {
+		editingRepasId = null;
+		repasAddOpen = true;
+		repasAddForm = { nom: '', ids: [] };
+	}
+
+	function toggleRepasAddId(id: string) {
+		repasAddForm = {
+			...repasAddForm,
+			ids: repasAddForm.ids.includes(id)
+				? repasAddForm.ids.filter((i) => i !== id)
+				: [...repasAddForm.ids, id]
+		};
+	}
+
+	async function submitAddRepas(jour: string) {
+		if (!selectedEvenementId || !repasAddForm.nom.trim()) return;
+		error = null;
+		try {
+			await api.post(`/creneaux/${selectedEvenementId}/repas`, {
+				jour,
+				nom: repasAddForm.nom.trim(),
+				creneau_ids: repasAddForm.ids
+			});
+			repasAddOpen = false;
+			await refreshScreenData();
+		} catch (e) {
+			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
+		}
+	}
+
+	function startEditRepas(r: CreneauRepas) {
+		repasAddOpen = false;
+		editingRepasId = r.id;
+		repasEditForm = { nom: r.nom, ids: [...r.creneau_ids] };
+	}
+
+	function toggleRepasEditId(id: string) {
+		repasEditForm = {
+			...repasEditForm,
+			ids: repasEditForm.ids.includes(id)
+				? repasEditForm.ids.filter((i) => i !== id)
+				: [...repasEditForm.ids, id]
+		};
+	}
+
+	async function submitEditRepas(r: CreneauRepas) {
+		if (!selectedEvenementId || !repasEditForm.nom.trim()) return;
+		error = null;
+		try {
+			await api.patch(`/creneaux/${selectedEvenementId}/repas/${r.id}`, {
+				jour: r.jour,
+				nom: repasEditForm.nom.trim(),
+				creneau_ids: repasEditForm.ids
+			});
+			editingRepasId = null;
+			await refreshScreenData();
+		} catch (e) {
+			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
+		}
+	}
+
+	async function removeRepas(r: CreneauRepas) {
 		if (!selectedEvenementId) return;
 		error = null;
 		try {
-			await api.patch(`/creneaux/${selectedEvenementId}/bornes`, {
-				fin_matin: toApiTime(bornesForm.fin_matin),
-				fin_midi: toApiTime(bornesForm.fin_midi),
-				fin_aprem: toApiTime(bornesForm.fin_aprem)
-			});
+			await api.delete(`/creneaux/${selectedEvenementId}/repas/${r.id}`);
 			await refreshScreenData();
-			bornesSaved.trigger();
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
 		}
@@ -295,6 +362,30 @@
 			});
 			dupliquerOuvert = false;
 			dupliquerSourceId = '';
+			await refreshScreenData();
+		} catch (e) {
+			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
+		}
+	}
+
+	// Jours de l'événement ayant déjà au moins un créneau de grille générale
+	// — seuls candidats valides comme source d'une duplication de jour.
+	function joursAvecCreneauxGenerale(): string[] {
+		const ev = selectedEvenement();
+		if (!ev) return [];
+		return joursEvenement(ev).filter((j) => creneauxDe(null, j).length > 0);
+	}
+
+	async function dupliquerJour() {
+		if (!selectedEvenementId || !selectedJour || !dupliquerJourSourceId) return;
+		error = null;
+		try {
+			await api.post(`/creneaux/${selectedEvenementId}/dupliquer-jour`, {
+				source_jour: dupliquerJourSourceId,
+				target_jour: selectedJour
+			});
+			dupliquerJourOuvert = false;
+			dupliquerJourSourceId = '';
 			await refreshScreenData();
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Erreur inattendue';
@@ -337,7 +428,7 @@
 
 <div class="screen-head">
 	<h2>Admin — créneaux applicatifs</h2>
-	<span class="screen-tag">Gabarit + grilles propres + bornes + mapping form</span>
+	<span class="screen-tag">Gabarit + grilles propres + créneaux repas + mapping form</span>
 </div>
 <p class="note">
 	Créneaux par jour (gabarit par défaut, modifiable), mapping avec les cases du formulaire, et
@@ -384,6 +475,36 @@
 		{#if selectedJour}
 			<div class="panel wf" style="margin-bottom:16px">
 				<h3>{formatJourShort(selectedJour)} — créneaux du jour</h3>
+
+				{#if creneauxDe(null, selectedJour).length === 0}
+					{@const candidats = joursAvecCreneauxGenerale().filter((j) => j !== selectedJour)}
+					{#if candidats.length > 0}
+						<div class="toolbar-row" style="margin:8px 0; justify-content:space-between">
+							{#if dupliquerJourOuvert}
+								<div class="btn-group">
+									{#each candidats as j (j)}
+										<button
+											class="btn-wf"
+											class:primary={dupliquerJourSourceId === j}
+											onclick={() => (dupliquerJourSourceId = j)}
+										>
+											{formatJourShort(j)}
+										</button>
+									{/each}
+								</div>
+								<button class="btn-wf primary" onclick={dupliquerJour}>Dupliquer</button>
+								<button class="btn-wf" onclick={() => (dupliquerJourOuvert = false)}>
+									Annuler
+								</button>
+							{:else}
+								<button class="btn-wf" onclick={() => (dupliquerJourOuvert = true)}>
+									Dupliquer les créneaux d'un autre jour
+								</button>
+							{/if}
+						</div>
+					{/if}
+				{/if}
+
 				<div class="field-grid">
 					{#each creneauxDe(null, selectedJour) as c (c.id)}
 						{#if editingId === c.id}
@@ -512,33 +633,97 @@
 			</div>
 
 			<div class="panel wf" style="margin-bottom:16px">
-				<h3>Bornes matin / midi / aprem / soir</h3>
+				<h3>Créneaux repas <span class="wf-label">(grille générale)</span></h3>
 				<p class="note" style="margin:4px 0 10px">
-					Catégorisent chaque créneau pour les futures règles d'enchaînement (§4.2) : matin avant
-					cette heure, midi avant la suivante, aprem avant la dernière, soir au-delà.
+					Liste nommée de créneaux, min. {CRENEAU_REPAS_MIN_MEMBRES}, variable par jour et par
+					événement : la génération automatique n'affecte jamais un bénévole à la totalité des
+					créneaux d'un même créneau repas, pour lui garantir une pause (une affectation manuelle
+					peut, elle, le faire). Non applicable aux commissions à grille propre.
 				</p>
-				<div class="field-grid">
-					<div class="field wf">
-						<span class="wf-label">Fin matin</span>
-						<input class="input-wf wf" type="time" bind:value={bornesForm.fin_matin} />
+
+				{#each creneauxRepasDe(selectedJour) as r (r.id)}
+					{#if editingRepasId === r.id}
+						<div class="field-grid" style="margin-bottom:6px">
+							<div class="field wf">
+								<span class="wf-label">Nom</span>
+								<input class="input-wf wf" bind:value={repasEditForm.nom} />
+							</div>
+						</div>
+						<div class="btn-group" style="margin-bottom:6px">
+							{#each creneauxDe(null, selectedJour) as c (c.id)}
+								<button
+									class="btn-wf"
+									class:primary={repasEditForm.ids.includes(c.id)}
+									onclick={() => toggleRepasEditId(c.id)}
+								>
+									{toInputTime(c.heure_debut)}–{toInputTime(c.heure_fin)}
+								</button>
+							{/each}
+						</div>
+						<div class="toolbar-row" style="margin:0 0 14px">
+							<button class="btn-wf primary" onclick={() => submitEditRepas(r)}>OK</button>
+							<button class="btn-wf" onclick={() => (editingRepasId = null)}>Annuler</button>
+						</div>
+					{:else}
+						<div class="wf-label" style="margin-bottom:6px">{r.nom}</div>
+						<div class="btn-group" style="margin-bottom:12px">
+							{#each r.creneau_ids as id (id)}
+								{@const c = data?.creneaux.find((x) => x.id === id)}
+								{#if c}
+									<button class="btn-wf primary" onclick={() => startEditRepas(r)}>
+										{toInputTime(c.heure_debut)}–{toInputTime(c.heure_fin)}
+									</button>
+								{/if}
+							{/each}
+							<button
+								class="btn-wf danger icon-btn"
+								onclick={() => removeRepas(r)}
+								aria-label="Supprimer ce créneau repas"
+								title="Supprimer ce créneau repas"
+							>
+								✕
+							</button>
+						</div>
+					{/if}
+				{/each}
+
+				{#if repasAddOpen}
+					<div class="field-grid" style="margin-bottom:6px">
+						<div class="field wf">
+							<span class="wf-label">Nom</span>
+							<input class="input-wf wf" bind:value={repasAddForm.nom} placeholder="Déjeuner" />
+						</div>
 					</div>
-					<div class="field wf">
-						<span class="wf-label">Fin midi</span>
-						<input class="input-wf wf" type="time" bind:value={bornesForm.fin_midi} />
+					<div class="btn-group" style="margin-bottom:6px">
+						{#each creneauxDe(null, selectedJour) as c (c.id)}
+							<button
+								class="btn-wf"
+								class:primary={repasAddForm.ids.includes(c.id)}
+								onclick={() => toggleRepasAddId(c.id)}
+							>
+								{toInputTime(c.heure_debut)}–{toInputTime(c.heure_fin)}
+							</button>
+						{/each}
+						{#if creneauxDe(null, selectedJour).length === 0}
+							<span class="note" style="margin:0">Aucun créneau général ce jour.</span>
+						{/if}
 					</div>
-					<div class="field wf">
-						<span class="wf-label">Fin aprem</span>
-						<input class="input-wf wf" type="time" bind:value={bornesForm.fin_aprem} />
+					<div class="toolbar-row" style="margin:0 0 14px">
+						<button
+							class="btn-wf primary"
+							disabled={repasAddForm.ids.length < CRENEAU_REPAS_MIN_MEMBRES ||
+								!repasAddForm.nom.trim()}
+							onclick={() => submitAddRepas(selectedJour ?? '')}
+						>
+							Ajouter
+						</button>
+						<button class="btn-wf" onclick={() => (repasAddOpen = false)}>Annuler</button>
 					</div>
-				</div>
-				<button
-					class="btn-wf primary"
-					class:success={bornesSaved.active}
-					style="margin-top:12px"
-					onclick={saveBornes}
-				>
-					{bornesSaved.active ? '✓ Enregistré' : 'Enregistrer'}
-				</button>
+				{:else}
+					<button class="btn-wf" onclick={startAddRepas}>
+						+ ajouter un créneau repas — {formatJourShort(selectedJour)}
+					</button>
+				{/if}
 			</div>
 
 			<div class="panel wf">

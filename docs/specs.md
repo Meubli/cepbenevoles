@@ -111,17 +111,28 @@ Les créneaux du formulaire (matin/midi/aprem/soir) ne sont pas les créneaux de
 - Un **gabarit de créneaux applicatifs par défaut** est fourni par l'app (modifiable).
 - Pour chaque événement, l'admin peut définir/adapter, **par jour**, la liste des créneaux applicatifs (heure début, heure fin). Le nombre de créneaux par jour est variable.
 - Un **mapping** relie chaque créneau du formulaire (jour + matin/midi/aprem/soir) à un ou plusieurs créneaux applicatifs de ce jour. C'est ce mapping qui permet de déduire la disponibilité réelle d'un bénévole à partir de sa réponse au form.
+- **Duplication d'un jour à l'autre** (grille générale uniquement) : raccourci de saisie pour copier les créneaux applicatifs d'un jour source vers un jour cible, dans le même événement, quand plusieurs jours partagent les mêmes horaires. Refusé si le jour cible a déjà des créneaux de grille générale. Les créneaux repas (cf. 4.4) **et le mapping form → créneaux applicatifs** (point précédent) du jour source sont dupliqués avec, reconstruits sur le jour cible contre les créneaux nouvellement copiés (même nom/mêmes cases matin-midi-aprem-soir). Les grilles propres (cf. 4.3) ne sont pas concernées — elles ont leur propre duplication, par commission.
 
 ### 4.2 Règles d'enchaînement (paramétrables, avec valeurs par défaut)
 
 1. **Pause obligatoire** : après 2 créneaux applicatifs consécutifs travaillés, au moins 1 créneau non travaillé est requis avant de pouvoir réaffecter le bénévole. Seuil "2" paramétrable.
-2. **Non-enchaînement midi** : un bénévole ne peut pas être affecté aux deux créneaux du midi à la suite (par défaut 11h-13h et 13h-15h).
-3. **Non-enchaînement soir** : un bénévole ne peut pas être affecté aux deux créneaux du soir à la suite (par défaut 17h-19h30 et 19h30h-fin).
-4. Les plages "matin"/"midi"/"soir" (bornes horaires qui définissent ces catégories) sont paramétrables par événement.
-5. Le nombre de créneaux applicatifs par jour est variable d'un jour à l'autre (déjà couvert en 4.1).
-6. Une commission configurée avec une grille de créneaux propre (cf. 5.2) n'est soumise à aucune des règles 1 à 3 ci-dessus : ses créneaux s'enchaînent librement.
+2. ~~Non-enchaînement midi~~ — **caduque**, remplacée par les créneaux repas (cf. 4.4).
+3. ~~Non-enchaînement soir~~ — **caduque**, remplacée par les créneaux repas (cf. 4.4).
+4. Le nombre de créneaux applicatifs par jour est variable d'un jour à l'autre (déjà couvert en 4.1).
+5. Une commission configurée avec une grille de créneaux propre (cf. 5.2) n'est soumise ni à la règle 1 ci-dessus, ni aux créneaux repas (4.4) : ses créneaux s'enchaînent librement.
 
-Par défaut, le créneau "aprem" est **15h-17h**.
+~~Les plages "matin"/"midi"/"aprem"/"soir" paramétrables par événement (anciennes bornes de catégorisation)~~ — **retirées** : elles ne servaient qu'aux règles 2/3 ci-dessus, désormais caduques, et n'étaient utilisées par rien d'autre (le mapping créneau form → créneaux applicatifs, cf. 4.1, se fait par association directe, pas par catégorie calculée). Les libellés matin/midi/aprem/soir du formulaire (cf. 3.1) restent, eux, inchangés — ce sont des cases du Google Form, indépendantes de ce mécanisme.
+
+### 4.4 Créneaux repas
+
+- Un **créneau repas** est une liste nommée de créneaux applicatifs de la grille générale, définie librement par l'admin, **par événement et par jour** (le nombre et la composition des créneaux repas peuvent varier d'un jour à l'autre et d'un événement à l'autre). Un jour peut avoir zéro, un, ou plusieurs créneaux repas (ex. un pour la pause déjeuner, un pour la pause dîner).
+- **Nom obligatoire** (ex. "Déjeuner", "Dîner"), saisi par l'admin à la création — sert à distinguer plusieurs créneaux repas le même jour.
+- **Minimum 2 créneaux applicatifs** par créneau repas : avec un seul créneau, le bénévole ne serait jamais affectable sur ce créneau (contrainte ci-dessous toujours violée), donc probablement une erreur de saisie — refusé à la validation.
+- **Décorrélé du mapping form** (cf. 4.1) : un créneau repas n'a aucun lien avec les catégories matin/midi/aprem/soir du formulaire ni avec le mapping qui en déduit les disponibilités. C'est un découpage purement applicatif, propre à la génération du planning.
+- **Contrainte de génération** : l'algorithme (cf. 6.2) ne doit jamais affecter un bénévole à la **totalité** des créneaux d'un même créneau repas, ce jour-là — au moins un créneau de ce groupe doit rester non travaillé par ce bénévole, pour lui garantir une pause repas. Comme la contrainte permis B/Transport (cf. 6.2), cette règle ne s'applique qu'à la génération automatique : une affectation manuelle d'un admin n'est pas techniquement bloquée si elle couvre tout le créneau repas (déconseillé, mais possible, comme toute affectation manuelle — cf. 6.3).
+- Un créneau applicatif peut appartenir à zéro, un, ou plusieurs créneaux repas ; l'app n'impose aucune contrainte de partition (pas d'obligation que les créneaux repas soient disjoints ou couvrent toute la journée).
+- Remplace les règles "non-enchaînement midi" et "non-enchaînement soir" (4.2.2/4.2.3, caduques) : la pause repas n'est plus liée à une paire fixe de créneaux ni aux catégories matin/midi/aprem/soir, mais à des groupes nommés, configurés librement par l'admin.
+- Comme pour la règle de pause (4.2.1), **non applicable** aux commissions à grille de créneaux propre (cf. 4.3) : leurs créneaux s'enchaînent librement, sans contrainte de créneau repas.
 
 ### 4.3 Grille de créneaux par commission
 
